@@ -10,23 +10,27 @@ A production-grade offline desktop accounting application built with Electron, R
 | UI | React 18 + Material UI v6 |
 | Language | TypeScript 5 |
 | Bundler | Vite 6 |
+| Database | SQLite (better-sqlite3) |
 | Packaging | electron-builder |
 
 ## 📁 Project Structure
 
 ```
 ledgercraft-studio/
-├── electron/           # Electron main process
-│   ├── main.ts         # Main window, security config
-│   ├── preload.ts      # contextBridge IPC API
-│   └── ipc/            # IPC handlers (future milestones)
-├── renderer/           # React renderer
+├── electron/                  # Electron main process
+│   ├── main.ts                # Window creation, app lifecycle
+│   ├── preload.ts             # contextBridge IPC API
+│   ├── storage.ts             # App data directory initialization
+│   ├── database.ts            # SQLite database class + repositories
+│   └── ipc/
+│       └── handlers.ts        # IPC handler registration
+├── renderer/                  # React renderer
 │   ├── index.html
 │   └── src/
-│       ├── components/ # Shared components (ThemeContext)
-│       ├── pages/      # Page components (Dashboard, etc.)
-│       ├── layouts/    # AppLayout (Sidebar + Topbar)
-│       └── services/   # Service modules (future milestones)
+│       ├── components/        # ThemeContext
+│       ├── pages/             # Dashboard, PlaceholderPage
+│       ├── layouts/           # AppLayout (Sidebar + Topbar)
+│       └── services/          # (future milestones)
 ├── electron-builder.json
 ├── vite.config.ts
 ├── tsconfig.json
@@ -46,13 +50,15 @@ ledgercraft-studio/
 npm install
 ```
 
+> The `postinstall` script automatically runs `electron-rebuild` to compile the native `better-sqlite3` module for Electron.
+
 ### Development
 
 ```bash
 npm run dev
 ```
 
-This starts the Vite dev server and opens the Electron window. Hot-reloading is enabled for the renderer.
+Starts the Vite dev server and opens the Electron window with hot-reloading.
 
 ### Build for Production
 
@@ -66,20 +72,24 @@ Produces installable packages in the `release/` directory (Windows NSIS installe
 
 - `contextIsolation: true`
 - `nodeIntegration: false`
-- `sandbox: true`
 - IPC via `contextBridge` only
+
+## 🗄 Database
+
+SQLite database is stored at:
+```
+%APPDATA%/LedgerCraftStudio/database.sqlite
+```
+
+**Tables**: `users`, `templates`, `template_placeholders`, `forms`, `form_fields`, `reports`
+
+App data subdirectories created on startup: `templates/`, `reports/`, `logs/`
 
 ## 🌗 Theme
 
-Light and Dark mode with toggle in the Topbar. Theme preference is persisted in `localStorage`.
+Light and Dark mode with toggle in the Topbar. Persisted in `localStorage`.
 
-## 📋 Current Milestone
+## 📋 Milestones
 
-**Milestone 1 — Foundation Setup** ✅
-
-- Electron + React + TypeScript + Vite scaffold
-- Material UI v6 with custom theme
-- Secure IPC bridge (`ping → pong`)
-- AppLayout with sidebar navigation
-- Light/Dark theme toggle
-- electron-builder packaging config
+- **Milestone 1** ✅ — Foundation (Electron + React + TypeScript + Vite + MUI)
+- **Milestone 2** ✅ — Database layer (SQLite + app data initialization + IPC)

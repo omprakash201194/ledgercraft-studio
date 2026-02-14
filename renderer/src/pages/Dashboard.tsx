@@ -12,11 +12,13 @@ import {
     CheckCircleOutline as CheckIcon,
     RocketLaunch as RocketIcon,
     Info as InfoIcon,
+    FolderOpen as FolderIcon,
 } from '@mui/icons-material';
 
 const Dashboard: React.FC = () => {
     const theme = useTheme();
     const [pingResult, setPingResult] = useState<string>('...');
+    const [appDataPath, setAppDataPath] = useState<string>('...');
 
     useEffect(() => {
         try {
@@ -25,7 +27,30 @@ const Dashboard: React.FC = () => {
         } catch {
             setPingResult('API not available (running in browser)');
         }
+
+        (async () => {
+            try {
+                const path = await window.api?.getAppDataPath();
+                setAppDataPath(path || 'Not available');
+            } catch {
+                setAppDataPath('Not available (running in browser)');
+            }
+        })();
     }, []);
+
+    const cardSx = (gradientStart: string, gradientEnd: string, hoverColor: string) => ({
+        p: 3,
+        border: `1px solid ${theme.palette.divider}`,
+        background:
+            theme.palette.mode === 'dark'
+                ? `linear-gradient(135deg, ${alpha(gradientStart, 0.06)} 0%, ${alpha(gradientEnd, 0.04)} 100%)`
+                : `linear-gradient(135deg, ${alpha(gradientStart, 0.04)} 0%, ${alpha(gradientEnd, 0.02)} 100%)`,
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: `0 8px 24px ${alpha(hoverColor, 0.12)}`,
+        },
+    });
 
     return (
         <Fade in timeout={500}>
@@ -70,25 +95,11 @@ const Dashboard: React.FC = () => {
                         display: 'grid',
                         gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
                         gap: 2.5,
+                        mb: 2.5,
                     }}
                 >
                     {/* IPC Status Card */}
-                    <Paper
-                        elevation={0}
-                        sx={{
-                            p: 3,
-                            border: `1px solid ${theme.palette.divider}`,
-                            background:
-                                theme.palette.mode === 'dark'
-                                    ? `linear-gradient(135deg, ${alpha('#7C4DFF', 0.06)} 0%, ${alpha('#448AFF', 0.04)} 100%)`
-                                    : `linear-gradient(135deg, ${alpha('#5C35D2', 0.04)} 0%, ${alpha('#448AFF', 0.02)} 100%)`,
-                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                            '&:hover': {
-                                transform: 'translateY(-2px)',
-                                boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
-                            },
-                        }}
-                    >
+                    <Paper elevation={0} sx={cardSx('#7C4DFF', '#448AFF', theme.palette.primary.main)}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                             <CheckIcon sx={{ color: '#4CAF50', fontSize: 20 }} />
                             <Typography variant="overline" sx={{ fontWeight: 600, letterSpacing: 1 }}>
@@ -130,22 +141,7 @@ const Dashboard: React.FC = () => {
                     </Paper>
 
                     {/* App Info Card */}
-                    <Paper
-                        elevation={0}
-                        sx={{
-                            p: 3,
-                            border: `1px solid ${theme.palette.divider}`,
-                            background:
-                                theme.palette.mode === 'dark'
-                                    ? `linear-gradient(135deg, ${alpha('#00E5FF', 0.06)} 0%, ${alpha('#7C4DFF', 0.04)} 100%)`
-                                    : `linear-gradient(135deg, ${alpha('#0097A7', 0.04)} 0%, ${alpha('#5C35D2', 0.02)} 100%)`,
-                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                            '&:hover': {
-                                transform: 'translateY(-2px)',
-                                boxShadow: `0 8px 24px ${alpha(theme.palette.secondary.main, 0.12)}`,
-                            },
-                        }}
-                    >
+                    <Paper elevation={0} sx={cardSx('#00E5FF', '#7C4DFF', theme.palette.secondary.main)}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                             <InfoIcon sx={{ color: theme.palette.secondary.main, fontSize: 20 }} />
                             <Typography variant="overline" sx={{ fontWeight: 600, letterSpacing: 1 }}>
@@ -156,8 +152,8 @@ const Dashboard: React.FC = () => {
                             {[
                                 { label: 'Stack', value: 'Electron + React + TypeScript' },
                                 { label: 'UI Framework', value: 'Material UI v6' },
-                                { label: 'Bundler', value: 'Vite' },
-                                { label: 'Milestone', value: '1 — Foundation' },
+                                { label: 'Database', value: 'SQLite (better-sqlite3)' },
+                                { label: 'Milestone', value: '2 — Database' },
                             ].map((item) => (
                                 <Box key={item.label} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -171,6 +167,42 @@ const Dashboard: React.FC = () => {
                         </Box>
                     </Paper>
                 </Box>
+
+                {/* App Data Path Card — Full Width */}
+                <Paper elevation={0} sx={cardSx('#FF9800', '#7C4DFF', '#FF9800')}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                        <FolderIcon sx={{ color: '#FF9800', fontSize: 20 }} />
+                        <Typography variant="overline" sx={{ fontWeight: 600, letterSpacing: 1 }}>
+                            App Data Location
+                        </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+                        Local storage directory (database, templates, reports, logs)
+                    </Typography>
+                    <Box
+                        sx={{
+                            px: 2,
+                            py: 1,
+                            borderRadius: 2,
+                            backgroundColor: alpha('#FF9800', 0.08),
+                            border: `1px solid ${alpha('#FF9800', 0.2)}`,
+                            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                            fontSize: '0.8rem',
+                            wordBreak: 'break-all',
+                        }}
+                    >
+                        <Typography
+                            sx={{
+                                fontFamily: 'inherit',
+                                fontSize: 'inherit',
+                                color: 'text.primary',
+                                fontWeight: 500,
+                            }}
+                        >
+                            {appDataPath}
+                        </Typography>
+                    </Box>
+                </Paper>
             </Box>
         </Fade>
     );

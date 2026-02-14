@@ -1,5 +1,11 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
+import { initializeStorage } from './storage';
+import { database } from './database';
+import { registerIpcHandlers } from './ipc/handlers';
+
+// Set app name early so userData path is consistent across dev/production
+app.setName('LedgerCraftStudio');
 
 // Suppress Electron security warnings in development
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
@@ -17,7 +23,7 @@ function createWindow(): void {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
-            sandbox: true,
+            sandbox: false,
         },
     });
 
@@ -35,7 +41,19 @@ function createWindow(): void {
     });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    // 1. Initialize storage directories
+    const appDataPath = initializeStorage();
+
+    // 2. Initialize database
+    database.initialize(appDataPath);
+
+    // 3. Register IPC handlers
+    registerIpcHandlers();
+
+    // 4. Create window
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
@@ -47,4 +65,8 @@ app.on('activate', () => {
     if (mainWindow === null) {
         createWindow();
     }
+});
+
+app.on('before-quit', () => {
+    database.close();
 });
