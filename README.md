@@ -11,6 +11,7 @@ A production-grade offline desktop accounting application built with Electron, R
 | Language | TypeScript 5 |
 | Bundler | Vite 6 |
 | Database | SQLite (better-sqlite3) |
+| Auth | bcryptjs (password hashing) |
 | Packaging | electron-builder |
 
 ## 📁 Project Structure
@@ -22,14 +23,15 @@ ledgercraft-studio/
 │   ├── preload.ts             # contextBridge IPC API
 │   ├── storage.ts             # App data directory initialization
 │   ├── database.ts            # SQLite database class + repositories
+│   ├── auth.ts                # Authentication + session management
 │   └── ipc/
 │       └── handlers.ts        # IPC handler registration
 ├── renderer/                  # React renderer
 │   ├── index.html
 │   └── src/
-│       ├── components/        # ThemeContext
-│       ├── pages/             # Dashboard, PlaceholderPage
-│       ├── layouts/           # AppLayout (Sidebar + Topbar)
+│       ├── components/        # ThemeContext, AuthContext
+│       ├── pages/             # Dashboard, LoginPage, UsersPage, PlaceholderPage
+│       ├── layouts/           # AppLayout (role-based sidebar + topbar)
 │       └── services/          # (future milestones)
 ├── electron-builder.json
 ├── vite.config.ts
@@ -66,30 +68,28 @@ Starts the Vite dev server and opens the Electron window with hot-reloading.
 npm run build
 ```
 
-Produces installable packages in the `release/` directory (Windows NSIS installer and Portable executable).
+Produces installable packages in the `release/` directory.
 
-## 🔐 Security
+## 🔐 Authentication
 
-- `contextIsolation: true`
-- `nodeIntegration: false`
-- IPC via `contextBridge` only
+- **Default admin**: `admin` / `admin123` (created on first launch)
+- **Password security**: bcrypt hashing (never stored in plaintext)
+- **Session**: In-memory only, resets on app restart
+- **Roles**: `ADMIN` and `USER` with role-based sidebar filtering
+- **Route protection**: Unauthenticated users redirected to login
 
 ## 🗄 Database
 
-SQLite database is stored at:
-```
-%APPDATA%/LedgerCraftStudio/database.sqlite
-```
+SQLite stored at `%APPDATA%/LedgerCraftStudio/database.sqlite`
 
 **Tables**: `users`, `templates`, `template_placeholders`, `forms`, `form_fields`, `reports`
 
-App data subdirectories created on startup: `templates/`, `reports/`, `logs/`
-
 ## 🌗 Theme
 
-Light and Dark mode with toggle in the Topbar. Persisted in `localStorage`.
+Light/Dark mode toggle, persisted in `localStorage`.
 
 ## 📋 Milestones
 
 - **Milestone 1** ✅ — Foundation (Electron + React + TypeScript + Vite + MUI)
 - **Milestone 2** ✅ — Database layer (SQLite + app data initialization + IPC)
+- **Milestone 3** ✅ — Authentication (bcrypt, login UI, role-based routing, user management)
