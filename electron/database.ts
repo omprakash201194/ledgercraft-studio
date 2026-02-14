@@ -209,6 +209,39 @@ class Database {
     const stmt = db.prepare('SELECT * FROM templates ORDER BY created_at DESC');
     return stmt.all() as Template[];
   }
+
+  getTemplatesWithPlaceholderCount(): (Template & { placeholder_count: number })[] {
+    const db = this.getConnection();
+    const stmt = db.prepare(`
+      SELECT t.*, COUNT(tp.id) as placeholder_count
+      FROM templates t
+      LEFT JOIN template_placeholders tp ON tp.template_id = t.id
+      GROUP BY t.id
+      ORDER BY t.created_at DESC
+    `);
+    return stmt.all() as (Template & { placeholder_count: number })[];
+  }
+
+  // ─── Repository: Template Placeholders ─────────────────
+
+  createPlaceholder(placeholder: Omit<TemplatePlaceholder, 'id'>): TemplatePlaceholder {
+    const db = this.getConnection();
+    const id = uuidv4();
+
+    const stmt = db.prepare(`
+      INSERT INTO template_placeholders (id, template_id, placeholder_key)
+      VALUES (?, ?, ?)
+    `);
+    stmt.run(id, placeholder.template_id, placeholder.placeholder_key);
+
+    return { id, ...placeholder };
+  }
+
+  getPlaceholdersByTemplateId(templateId: string): TemplatePlaceholder[] {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT * FROM template_placeholders WHERE template_id = ?');
+    return stmt.all(templateId) as TemplatePlaceholder[];
+  }
 }
 
 // Export singleton instance

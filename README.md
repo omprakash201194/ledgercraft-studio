@@ -84,6 +84,13 @@ SQLite stored at `%APPDATA%/LedgerCraftStudio/database.sqlite`
 
 **Tables**: `users`, `templates`, `template_placeholders`, `forms`, `form_fields`, `reports`
 
+## 📄 Template Management
+
+- ADMIN-only upload via native file dialog (.docx only)
+- Files saved to `%APPDATA%/LedgerCraftStudio/templates/{uuid}.docx`
+- Placeholder extraction: `{{key}}` patterns detected using `docxtemplater`
+- Placeholders stored in `template_placeholders` table
+
 ## 🌗 Theme
 
 Light/Dark mode toggle, persisted in `localStorage`.
@@ -93,3 +100,4 @@ Light/Dark mode toggle, persisted in `localStorage`.
 - **Milestone 1** ✅ — Foundation (Electron + React + TypeScript + Vite + MUI)
 - **Milestone 2** ✅ — Database layer (SQLite + app data initialization + IPC)
 - **Milestone 3** ✅ — Authentication (bcrypt, login UI, role-based routing, user management)
+- **Milestone 4** ✅ — Template management (upload .docx, placeholder extraction, admin UI)

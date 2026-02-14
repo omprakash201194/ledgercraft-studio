@@ -11,4 +11,9 @@ contextBridge.exposeInMainWorld('api', {
     getCurrentUser: () => ipcRenderer.invoke('auth:get-current-user'),
     createUser: (username: string, password: string, role: string) => ipcRenderer.invoke('auth:create-user', username, password, role),
     getAllUsers: () => ipcRenderer.invoke('auth:get-all-users'),
+
+    // Templates
+    uploadTemplate: () => ipcRenderer.invoke('template:upload'),
+    getTemplates: () => ipcRenderer.invoke('template:get-all'),
+    getTemplatePlaceholders: (templateId: string) => ipcRenderer.invoke('template:get-placeholders', templateId),
 });

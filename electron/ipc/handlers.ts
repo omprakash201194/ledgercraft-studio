@@ -1,7 +1,9 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, dialog } from 'electron';
+import fs from 'fs';
 import { login, logout, getCurrentUser, createUser } from '../auth';
 import { database } from '../database';
 import { SafeUser } from '../auth';
+import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
 
 /**
  * Register all IPC handlers.
@@ -37,7 +39,6 @@ export function registerIpcHandlers(): void {
             return { success: false, error: 'Unauthorized', users: [] };
         }
         const users = database.getAllUsers();
-        // Return users without password hashes
         const safeUsers: SafeUser[] = users.map((u) => ({
             id: u.id,
             username: u.username,
@@ -45,5 +46,32 @@ export function registerIpcHandlers(): void {
             created_at: u.created_at,
         }));
         return { success: true, users: safeUsers };
+    });
+
+    // ─── Templates ───────────────────────────────────────
+    ipcMain.handle('template:upload', async () => {
+        const result = await dialog.showOpenDialog({
+            title: 'Select a .docx Template',
+            filters: [{ name: 'Word Documents', extensions: ['docx'] }],
+            properties: ['openFile'],
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+            return { success: false, error: 'No file selected' };
+        }
+
+        const filePath = result.filePaths[0];
+        const originalName = filePath.split(/[\\/]/).pop() || 'template.docx';
+        const fileBuffer = fs.readFileSync(filePath);
+
+        return uploadTemplate(Buffer.from(fileBuffer), originalName);
+    });
+
+    ipcMain.handle('template:get-all', () => {
+        return getTemplates();
+    });
+
+    ipcMain.handle('template:get-placeholders', (_event, templateId: string) => {
+        return getTemplatePlaceholders(templateId);
     });
 }
