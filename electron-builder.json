@@ -1,0 +1,35 @@
+{
+    "appId": "com.ledgercraft.studio",
+    "productName": "LedgerCraft Studio",
+    "directories": {
+        "output": "release"
+    },
+    "files": [
+        "dist/**/*",
+        "package.json"
+    ],
+    "win": {
+        "target": [
+            {
+                "target": "nsis",
+                "arch": [
+                    "x64"
+                ]
+            },
+            {
+                "target": "portable",
+                "arch": [
+                    "x64"
+                ]
+            }
+        ],
+        "icon": null
+    },
+    "nsis": {
+        "oneClick": false,
+        "perMachine": true,
+        "allowToChangeInstallationDirectory": true,
+        "installerIcon": null,
+        "uninstallerIcon": null
+    }
+}

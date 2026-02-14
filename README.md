@@ -1,201 +1,85 @@
 # LedgerCraft Studio
 
-LedgerCraft Studio is a fully offline desktop document automation
-utility designed specifically for Chartered Accountant firms.
+A production-grade offline desktop accounting application built with Electron, React, TypeScript, Vite, and Material UI.
 
-It enables administrators to upload Microsoft Word templates, create
-dynamic forms mapped to template placeholders, and allow users to
-generate professional reports in a secure multi-user environment --- all
-without requiring any server, internet connection, or external database
-installation.
+## 🏗 Tech Stack
 
-------------------------------------------------------------------------
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Electron 34 |
+| UI | React 18 + Material UI v6 |
+| Language | TypeScript 5 |
+| Bundler | Vite 6 |
+| Packaging | electron-builder |
 
-## ✨ Key Features
+## 📁 Project Structure
 
--   Fully Offline Desktop Application
--   Windows-first Distribution
--   Multi-user Role-Based Access (Admin / User)
--   Secure Local Authentication
--   Word (.docx) Template Upload
--   Automatic Placeholder Detection
--   Dynamic Form Builder
--   Smart Placeholder-to-Field Mapping
--   One-click Report Generation
--   Local SQLite Database (No Installation Required)
--   Structured Report Storage
--   Expandable Modular Architecture
+```
+ledgercraft-studio/
+├── electron/           # Electron main process
+│   ├── main.ts         # Main window, security config
+│   ├── preload.ts      # contextBridge IPC API
+│   └── ipc/            # IPC handlers (future milestones)
+├── renderer/           # React renderer
+│   ├── index.html
+│   └── src/
+│       ├── components/ # Shared components (ThemeContext)
+│       ├── pages/      # Page components (Dashboard, etc.)
+│       ├── layouts/    # AppLayout (Sidebar + Topbar)
+│       └── services/   # Service modules (future milestones)
+├── electron-builder.json
+├── vite.config.ts
+├── tsconfig.json
+├── tsconfig.electron.json
+└── package.json
+```
 
-------------------------------------------------------------------------
+## 🚀 Getting Started
 
-## 👥 User Roles
+### Prerequisites
 
-### Admin
-
--   Manage Users
--   Upload and Manage Templates
--   Create and Modify Forms
--   Generate Reports
--   View All Generated Reports
-
-### User
-
--   Generate Reports Using Existing Forms
--   View Generated Reports
--   Cannot Modify Templates or Forms
-
-------------------------------------------------------------------------
-
-## 🏗 Architecture Overview
-
-LedgerCraft Studio is designed as a pure desktop utility.
-
-Electron Main Process: - SQLite Database Management - File System
-Handling - Template Processing Engine - Authentication Logic - IPC
-Handlers
-
-React + Material UI Renderer: - Modern UI - Dynamic Form Builder -
-Report Generation Interface - Role-based Navigation
-
-There is no backend server and no network dependency.
-
-------------------------------------------------------------------------
-
-## 🧠 Technology Stack
-
--   Electron
--   React + TypeScript
--   Material UI (MUI)
--   SQLite (embedded)
--   better-sqlite3
--   docx-templater
--   bcrypt
--   electron-builder
-
-------------------------------------------------------------------------
-
-## 📂 Project Structure
-
-    ledgercraft-studio/
-    │
-    ├── electron/
-    │   ├── main.ts
-    │   ├── preload.ts
-    │   ├── database.ts
-    │   └── ipc/
-    │
-    ├── renderer/
-    │   ├── src/
-    │   │   ├── components/
-    │   │   ├── pages/
-    │   │   ├── layouts/
-    │   │   └── services/
-    │   └── package.json
-    │
-    ├── assets/
-    ├── electron-builder.json
-    ├── package.json
-    └── README.md
-
-------------------------------------------------------------------------
-
-## 🗄 Data Storage
-
-All application data is stored locally under:
-
-### Windows
-
-C:`\Users`{=tex}\<User\>`\AppData`{=tex}`\Roaming`{=tex}`\LedgerCraftStudio`{=tex}\
-
-Structure:
-
-/database.sqlite\
-/templates/\
-/reports/\
-/logs/
-
-No external database installation required.
-
-------------------------------------------------------------------------
-
-## 📄 Template Placeholder Format
-
-Templates must use double curly braces:
-
-{{client_name}}\
-{{assessment_year}}\
-{{total_income}}
-
-The application automatically scans and extracts placeholders during
-upload.
-
-------------------------------------------------------------------------
-
-## 🔐 Security
-
--   Passwords hashed using bcrypt
--   Role-based UI rendering
--   Secure Electron configuration (contextIsolation enabled)
--   No external network exposure
--   Local-only data storage
-
-------------------------------------------------------------------------
-
-## 🚀 Development Setup
+- **Node.js** 18+ and **npm** 9+
 
 ### Install Dependencies
 
+```bash
 npm install
+```
 
-### Run in Development Mode
+### Development
 
+```bash
 npm run dev
+```
 
-------------------------------------------------------------------------
+This starts the Vite dev server and opens the Electron window. Hot-reloading is enabled for the renderer.
 
-## 🛠 Build Windows Installer
+### Build for Production
 
+```bash
 npm run build
+```
 
-This will generate:
+Produces installable packages in the `release/` directory (Windows NSIS installer and Portable executable).
 
--   Windows .exe installer
--   Portable version
+## 🔐 Security
 
-------------------------------------------------------------------------
+- `contextIsolation: true`
+- `nodeIntegration: false`
+- `sandbox: true`
+- IPC via `contextBridge` only
 
-## 📦 Release Strategy
+## 🌗 Theme
 
-1.  Update version in package.json\
-2.  Create Git tag:
+Light and Dark mode with toggle in the Topbar. Theme preference is persisted in `localStorage`.
 
-git tag v1.0.0\
-git push origin v1.0.0
+## 📋 Current Milestone
 
-3.  Upload generated installer to GitHub Releases
+**Milestone 1 — Foundation Setup** ✅
 
-------------------------------------------------------------------------
-
-## 🛣 Roadmap
-
--   PDF Export Support
--   Digital Signature Integration
--   Bulk Report Generation
--   Client Management Module
--   Backup & Restore Utility
--   Plugin Architecture
--   Future Web Companion Version
-
-------------------------------------------------------------------------
-
-## 📜 License
-
-MIT License
-
-------------------------------------------------------------------------
-
-## 💼 Vision
-
-LedgerCraft Studio aims to become a comprehensive offline digital
-toolkit for CA firms, starting with intelligent document automation and
-expanding into a full practice management ecosystem.
+- Electron + React + TypeScript + Vite scaffold
+- Material UI v6 with custom theme
+- Secure IPC bridge (`ping → pong`)
+- AppLayout with sidebar navigation
+- Light/Dark theme toggle
+- electron-builder packaging config
