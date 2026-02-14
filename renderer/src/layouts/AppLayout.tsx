@@ -14,6 +14,8 @@ import {
     Divider,
     useTheme,
     alpha,
+    Chip,
+    Tooltip,
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
@@ -26,8 +28,10 @@ import {
     DarkMode as DarkModeIcon,
     LightMode as LightModeIcon,
     AutoStories as LogoIcon,
+    Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { useThemeContext } from '../components/ThemeContext';
+import { useAuth } from '../components/AuthContext';
 
 const SIDEBAR_WIDTH = 260;
 
@@ -35,16 +39,17 @@ interface NavItem {
     label: string;
     path: string;
     icon: React.ReactElement;
+    roles: string[]; // which roles can see this item
 }
 
-const navItems: NavItem[] = [
-    { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
-    { label: 'Templates', path: '/templates', icon: <TemplatesIcon /> },
-    { label: 'Forms', path: '/forms', icon: <FormsIcon /> },
-    { label: 'Generate Report', path: '/generate-report', icon: <GenerateReportIcon /> },
-    { label: 'Reports', path: '/reports', icon: <ReportsIcon /> },
-    { label: 'Users', path: '/users', icon: <UsersIcon /> },
-    { label: 'Settings', path: '/settings', icon: <SettingsIcon /> },
+const allNavItems: NavItem[] = [
+    { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon />, roles: ['ADMIN', 'USER'] },
+    { label: 'Templates', path: '/templates', icon: <TemplatesIcon />, roles: ['ADMIN'] },
+    { label: 'Forms', path: '/forms', icon: <FormsIcon />, roles: ['ADMIN'] },
+    { label: 'Generate Report', path: '/generate-report', icon: <GenerateReportIcon />, roles: ['USER'] },
+    { label: 'Reports', path: '/reports', icon: <ReportsIcon />, roles: ['USER'] },
+    { label: 'Users', path: '/users', icon: <UsersIcon />, roles: ['ADMIN'] },
+    { label: 'Settings', path: '/settings', icon: <SettingsIcon />, roles: ['USER'] },
 ];
 
 const AppLayout: React.FC = () => {
@@ -52,6 +57,15 @@ const AppLayout: React.FC = () => {
     const location = useLocation();
     const theme = useTheme();
     const { mode, toggleTheme } = useThemeContext();
+    const { user, logout } = useAuth();
+
+    // Filter nav items by current user's role
+    const navItems = allNavItems.filter((item) => user && item.roles.includes(user.role));
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login', { replace: true });
+    };
 
     return (
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -70,6 +84,8 @@ const AppLayout: React.FC = () => {
                                 : 'linear-gradient(180deg, #FFFFFF 0%, #F4F6FB 100%)',
                         borderRight: `1px solid ${theme.palette.divider}`,
                         px: 1.5,
+                        display: 'flex',
+                        flexDirection: 'column',
                     },
                 }}
             >
@@ -111,7 +127,7 @@ const AppLayout: React.FC = () => {
                 <Divider sx={{ mb: 1.5 }} />
 
                 {/* Navigation */}
-                <List sx={{ px: 0.5 }}>
+                <List sx={{ px: 0.5, flex: 1 }}>
                     {navItems.map((item) => {
                         const isActive = location.pathname === item.path;
                         return (
@@ -153,6 +169,50 @@ const AppLayout: React.FC = () => {
                         );
                     })}
                 </List>
+
+                {/* User Info + Logout at Bottom */}
+                <Divider sx={{ mt: 1 }} />
+                <Box sx={{ px: 1.5, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.3 }} noWrap>
+                            {user?.username}
+                        </Typography>
+                        <Chip
+                            label={user?.role}
+                            size="small"
+                            sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                mt: 0.3,
+                                backgroundColor:
+                                    user?.role === 'ADMIN'
+                                        ? alpha(theme.palette.warning.main, 0.15)
+                                        : alpha(theme.palette.info.main, 0.15),
+                                color:
+                                    user?.role === 'ADMIN'
+                                        ? theme.palette.warning.main
+                                        : theme.palette.info.main,
+                            }}
+                        />
+                    </Box>
+                    <Tooltip title="Sign out">
+                        <IconButton
+                            id="logout-button"
+                            onClick={handleLogout}
+                            size="small"
+                            sx={{
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    color: theme.palette.error.main,
+                                    backgroundColor: alpha(theme.palette.error.main, 0.08),
+                                },
+                            }}
+                        >
+                            <LogoutIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
             </Drawer>
 
             {/* Main Content Area */}

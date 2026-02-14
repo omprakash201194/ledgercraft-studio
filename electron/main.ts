@@ -3,6 +3,7 @@ import path from 'path';
 import { initializeStorage } from './storage';
 import { database } from './database';
 import { registerIpcHandlers } from './ipc/handlers';
+import { bootstrapAdmin } from './auth';
 
 // Set app name early so userData path is consistent across dev/production
 app.setName('LedgerCraftStudio');
@@ -48,10 +49,13 @@ app.whenReady().then(() => {
     // 2. Initialize database
     database.initialize(appDataPath);
 
-    // 3. Register IPC handlers
+    // 3. Bootstrap default admin if no users exist
+    bootstrapAdmin();
+
+    // 4. Register IPC handlers
     registerIpcHandlers();
 
-    // 4. Create window
+    // 5. Create window
     createWindow();
 });
 
