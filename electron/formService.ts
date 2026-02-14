@@ -1,0 +1,104 @@
+import { database, FormField } from './database';
+import { getCurrentUser } from './auth';
+
+// ─── Types ───────────────────────────────────────────────
+
+export interface CreateFormInput {
+    name: string;
+    template_id: string;
+    fields: {
+        label: string;
+        field_key: string;
+        data_type: string;
+        required: boolean;
+        placeholder_mapping: string | null;
+        options_json: string | null;
+    }[];
+}
+
+export interface CreateFormResult {
+    success: boolean;
+    form?: {
+        id: string;
+        name: string;
+        template_id: string;
+        created_at: string;
+    };
+    error?: string;
+}
+
+// ─── Form Service ────────────────────────────────────────
+
+/**
+ * Create a new form with fields, mapped to a template.
+ */
+export function createForm(input: CreateFormInput): CreateFormResult {
+    // Auth check: only ADMIN
+    const currentUser = getCurrentUser();
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+        return { success: false, error: 'Only administrators can create forms' };
+    }
+
+    // Validation
+    if (!input.name || input.name.trim().length === 0) {
+        return { success: false, error: 'Form name is required' };
+    }
+
+    if (!input.fields || input.fields.length === 0) {
+        return { success: false, error: 'At least one field is required' };
+    }
+
+    // Check for duplicate placeholder mappings
+    const mappings = input.fields
+        .map((f) => f.placeholder_mapping)
+        .filter((m): m is string => m !== null && m !== '');
+    const uniqueMappings = new Set(mappings);
+    if (mappings.length !== uniqueMappings.size) {
+        return { success: false, error: 'Placeholder mappings must be unique across fields' };
+    }
+
+    try {
+        // Convert boolean required to integer for DB
+        const dbFields: Omit<FormField, 'id' | 'form_id'>[] = input.fields.map((f) => ({
+            label: f.label,
+            field_key: f.field_key,
+            data_type: f.data_type,
+            required: f.required ? 1 : 0,
+            placeholder_mapping: f.placeholder_mapping || null,
+            options_json: f.options_json || null,
+        }));
+
+        const form = database.createForm(
+            { name: input.name.trim(), template_id: input.template_id },
+            dbFields
+        );
+
+        console.log(`[Form] Created form "${form.name}" with ${input.fields.length} field(s)`);
+        return { success: true, form };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error creating form';
+        console.error(`[Form] Error: ${message}`);
+        return { success: false, error: message };
+    }
+}
+
+/**
+ * Get all forms with template name and field count.
+ */
+export function getForms() {
+    return database.getFormsWithDetails();
+}
+
+/**
+ * Get a single form by ID with template name.
+ */
+export function getFormById(formId: string) {
+    return database.getFormById(formId) || null;
+}
+
+/**
+ * Get all fields for a form.
+ */
+export function getFormFields(formId: string) {
+    return database.getFormFields(formId);
+}

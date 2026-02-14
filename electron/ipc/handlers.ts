@@ -4,6 +4,7 @@ import { login, logout, getCurrentUser, createUser } from '../auth';
 import { database } from '../database';
 import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
+import { createForm, getForms, getFormById, getFormFields, CreateFormInput } from '../formService';
 
 /**
  * Register all IPC handlers.
@@ -73,5 +74,22 @@ export function registerIpcHandlers(): void {
 
     ipcMain.handle('template:get-placeholders', (_event, templateId: string) => {
         return getTemplatePlaceholders(templateId);
+    });
+
+    // ─── Forms ───────────────────────────────────────────
+    ipcMain.handle('form:create', (_event, formData: CreateFormInput) => {
+        return createForm(formData);
+    });
+
+    ipcMain.handle('form:get-all', () => {
+        return getForms();
+    });
+
+    ipcMain.handle('form:get-by-id', (_event, formId: string) => {
+        return getFormById(formId);
+    });
+
+    ipcMain.handle('form:get-fields', (_event, formId: string) => {
+        return getFormFields(formId);
     });
 }

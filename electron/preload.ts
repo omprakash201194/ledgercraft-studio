@@ -16,4 +16,10 @@ contextBridge.exposeInMainWorld('api', {
     uploadTemplate: () => ipcRenderer.invoke('template:upload'),
     getTemplates: () => ipcRenderer.invoke('template:get-all'),
     getTemplatePlaceholders: (templateId: string) => ipcRenderer.invoke('template:get-placeholders', templateId),
+
+    // Forms
+    createForm: (formData: unknown) => ipcRenderer.invoke('form:create', formData),
+    getForms: () => ipcRenderer.invoke('form:get-all'),
+    getFormById: (formId: string) => ipcRenderer.invoke('form:get-by-id', formId),
+    getFormFields: (formId: string) => ipcRenderer.invoke('form:get-fields', formId),
 });

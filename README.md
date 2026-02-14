@@ -101,3 +101,4 @@ Light/Dark mode toggle, persisted in `localStorage`.
 - **Milestone 2** ✅ — Database layer (SQLite + app data initialization + IPC)
 - **Milestone 3** ✅ — Authentication (bcrypt, login UI, role-based routing, user management)
 - **Milestone 4** ✅ — Template management (upload .docx, placeholder extraction, admin UI)
+- **Milestone 5** ✅ — Dynamic form builder (field types, placeholder mapping, admin UI)

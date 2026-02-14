@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
 import UsersPage from './pages/UsersPage';
 import TemplatesPage from './pages/TemplatesPage';
+import FormsPage from './pages/FormsPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import { Box, CircularProgress } from '@mui/material';
 
@@ -93,7 +94,7 @@ const App: React.FC = () => {
                             <Route index element={<Navigate to="/dashboard" replace />} />
                             <Route path="dashboard" element={<Dashboard />} />
                             <Route path="templates" element={<TemplatesPage />} />
-                            <Route path="forms" element={<PlaceholderPage title="Forms" />} />
+                            <Route path="forms" element={<FormsPage />} />
                             <Route path="generate-report" element={<PlaceholderPage title="Generate Report" />} />
                             <Route path="reports" element={<PlaceholderPage title="Reports" />} />
                             <Route

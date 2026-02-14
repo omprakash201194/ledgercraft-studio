@@ -45,6 +45,50 @@ interface TemplatePlaceholder {
     placeholder_key: string;
 }
 
+interface CreateFormInput {
+    name: string;
+    template_id: string;
+    fields: {
+        label: string;
+        field_key: string;
+        data_type: string;
+        required: boolean;
+        placeholder_mapping: string | null;
+        options_json: string | null;
+    }[];
+}
+
+interface CreateFormResult {
+    success: boolean;
+    form?: {
+        id: string;
+        name: string;
+        template_id: string;
+        created_at: string;
+    };
+    error?: string;
+}
+
+interface FormRecord {
+    id: string;
+    name: string;
+    template_id: string;
+    template_name: string;
+    field_count: number;
+    created_at: string;
+}
+
+interface FormFieldRecord {
+    id: string;
+    form_id: string;
+    label: string;
+    field_key: string;
+    data_type: string;
+    required: number;
+    placeholder_mapping: string | null;
+    options_json: string | null;
+}
+
 declare global {
     interface Window {
         api: {
@@ -63,6 +107,12 @@ declare global {
             uploadTemplate: () => Promise<UploadTemplateResult>;
             getTemplates: () => Promise<TemplateRecord[]>;
             getTemplatePlaceholders: (templateId: string) => Promise<TemplatePlaceholder[]>;
+
+            // Forms
+            createForm: (formData: CreateFormInput) => Promise<CreateFormResult>;
+            getForms: () => Promise<FormRecord[]>;
+            getFormById: (formId: string) => Promise<FormRecord | null>;
+            getFormFields: (formId: string) => Promise<FormFieldRecord[]>;
         };
     }
 }

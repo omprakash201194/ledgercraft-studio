@@ -242,6 +242,75 @@ class Database {
     const stmt = db.prepare('SELECT * FROM template_placeholders WHERE template_id = ?');
     return stmt.all(templateId) as TemplatePlaceholder[];
   }
+
+  // ─── Repository: Forms ─────────────────────────────────
+
+  createForm(form: Omit<Form, 'id' | 'created_at'>, fields: Omit<FormField, 'id' | 'form_id'>[]): Form {
+    const db = this.getConnection();
+    const formId = uuidv4();
+    const created_at = new Date().toISOString();
+
+    const insertForm = db.prepare(`
+      INSERT INTO forms (id, name, template_id, created_at)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    const insertField = db.prepare(`
+      INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const transaction = db.transaction(() => {
+      insertForm.run(formId, form.name, form.template_id, created_at);
+
+      for (const field of fields) {
+        const fieldId = uuidv4();
+        insertField.run(
+          fieldId,
+          formId,
+          field.label,
+          field.field_key,
+          field.data_type,
+          field.required,
+          field.placeholder_mapping || null,
+          field.options_json || null
+        );
+      }
+    });
+
+    transaction();
+    return { id: formId, name: form.name, template_id: form.template_id, created_at };
+  }
+
+  getFormsWithDetails(): (Form & { template_name: string; field_count: number })[] {
+    const db = this.getConnection();
+    const stmt = db.prepare(`
+      SELECT f.*, t.name as template_name, COUNT(ff.id) as field_count
+      FROM forms f
+      LEFT JOIN templates t ON t.id = f.template_id
+      LEFT JOIN form_fields ff ON ff.form_id = f.id
+      GROUP BY f.id
+      ORDER BY f.created_at DESC
+    `);
+    return stmt.all() as (Form & { template_name: string; field_count: number })[];
+  }
+
+  getFormById(formId: string): (Form & { template_name: string }) | undefined {
+    const db = this.getConnection();
+    const stmt = db.prepare(`
+      SELECT f.*, t.name as template_name
+      FROM forms f
+      LEFT JOIN templates t ON t.id = f.template_id
+      WHERE f.id = ?
+    `);
+    return stmt.get(formId) as (Form & { template_name: string }) | undefined;
+  }
+
+  getFormFields(formId: string): FormField[] {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT * FROM form_fields WHERE form_id = ? ORDER BY rowid');
+    return stmt.all(formId) as FormField[];
+  }
 }
 
 // Export singleton instance
