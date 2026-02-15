@@ -98,6 +98,7 @@ declare global {
         category_id?: string | null;
         template_id?: string;
         fields?: {
+            id?: string;
             label: string;
             field_key: string;
             data_type: string;
@@ -105,6 +106,15 @@ declare global {
             placeholder_mapping: string | null;
             options_json: string | null;
         }[];
+    }
+
+    interface GeneratedField {
+        label: string;
+        field_key: string;
+        data_type: string;
+        required: boolean;
+        placeholder_mapping: string | null;
+        options_json: string | null;
     }
 
     interface GenerateReportInput {
@@ -186,8 +196,9 @@ declare global {
             createForm: (input: CreateFormInput) => Promise<{ success: boolean; form?: any; error?: string }>;
             updateForm: (input: UpdateFormInput) => Promise<{ success: boolean; form?: any; error?: string }>;
             getForms: () => Promise<FormRecord[]>;
-            getFormById: (formId: string) => Promise<FormRecord | null>;
-            getFormFields: (formId: string) => Promise<FormFieldRecord[]>;
+            getFormById(formId: string): Promise<FormRecord & { fields: FormFieldRecord[] }>;
+            getFormFields(formId: string): Promise<FormFieldRecord[]>;
+            generateFormFields(templateId: string): Promise<GeneratedField[]>;
 
             // Reports
             generateReport: (input: GenerateReportInput) => Promise<GenerateReportResult>;

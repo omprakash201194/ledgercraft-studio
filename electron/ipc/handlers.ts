@@ -4,7 +4,7 @@ import { login, logout, getCurrentUser, createUser } from '../auth';
 import { database } from '../database';
 import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
-import { createForm, getForms, getFormById, getFormFields, updateForm, CreateFormInput, UpdateFormInput } from '../formService';
+import { createForm, getForms, getFormById, getFormFields, updateForm, generateFieldsFromTemplate, CreateFormInput, UpdateFormInput } from '../formService';
 import { generateReport, getReports, GenerateReportInput } from '../reportService';
 import {
     getCategoryTree,
@@ -181,6 +181,10 @@ export function registerIpcHandlers(): void {
 
     ipcMain.handle('form:get-fields', (_event, formId: string) => {
         return getFormFields(formId);
+    });
+
+    ipcMain.handle('form:generate-fields', (_event, templateId: string) => {
+        return generateFieldsFromTemplate(templateId);
     });
 
     // ─── Reports ─────────────────────────────────────────

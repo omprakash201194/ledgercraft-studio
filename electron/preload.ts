@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('api', {
     getForms: () => ipcRenderer.invoke('form:get-all'),
     getFormById: (formId: string) => ipcRenderer.invoke('form:get-by-id', formId),
     getFormFields: (formId: string) => ipcRenderer.invoke('form:get-fields', formId),
+    generateFormFields: (templateId: string) => ipcRenderer.invoke('form:generate-fields', templateId),
 
     // Reports
     generateReport: (input: unknown) => ipcRenderer.invoke('report:generate', input),

@@ -108,6 +108,42 @@ export function getFormFields(formId: string) {
     return database.getFormFields(formId);
 }
 
+/**
+ * Generate fields from template placeholders using heuristic rules.
+ * Does NOT persist to DB. Returns transient field objects.
+ */
+export function generateFieldsFromTemplate(templateId: string) {
+    const placeholders = database.getPlaceholdersByTemplateId(templateId);
+
+    return placeholders.map(p => {
+        const key = p.placeholder_key;
+        return {
+            label: formatLabel(key),
+            field_key: key.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+            data_type: detectType(key),
+            required: true,
+            placeholder_mapping: key,
+            options_json: null
+        };
+    });
+}
+
+// ─── Heuristics ──────────────────────────────────────────
+
+function formatLabel(key: string): string {
+    return key.split(/[_\s]+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+function detectType(key: string): string {
+    const k = key.toLowerCase();
+    if (k.includes('date')) return 'date';
+    if (k.includes('amount') || k.includes('total') || k.includes('price') || k.includes('cost')) return 'currency';
+    if (k.includes('year') || k.includes('count') || k.includes('percentage') || k.includes('rate')) return 'number';
+    return 'text';
+}
+
 export interface UpdateFormInput {
     id: string;
     name?: string;
