@@ -46,8 +46,8 @@ const allNavItems: NavItem[] = [
     { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon />, roles: ['ADMIN', 'USER'] },
     { label: 'Templates', path: '/templates', icon: <TemplatesIcon />, roles: ['ADMIN'] },
     { label: 'Forms', path: '/forms', icon: <FormsIcon />, roles: ['ADMIN'] },
-    { label: 'Generate Report', path: '/generate-report', icon: <GenerateReportIcon />, roles: ['USER'] },
-    { label: 'Reports', path: '/reports', icon: <ReportsIcon />, roles: ['USER'] },
+    { label: 'Generate Report', path: '/generate-report', icon: <GenerateReportIcon />, roles: ['ADMIN', 'USER'] },
+    { label: 'Reports', path: '/reports', icon: <ReportsIcon />, roles: ['ADMIN', 'USER'] },
     { label: 'Users', path: '/users', icon: <UsersIcon />, roles: ['ADMIN'] },
     { label: 'Settings', path: '/settings', icon: <SettingsIcon />, roles: ['USER'] },
 ];
