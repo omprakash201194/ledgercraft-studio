@@ -21,6 +21,8 @@ import {
     OpenInNew as OpenIcon,
     Download as DownloadIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../components/AuthContext';
+import { formatDate } from '../utils/dateUtils';
 
 interface ReportRecord {
     id: string;
@@ -34,12 +36,18 @@ interface ReportRecord {
 
 const ReportsPage: React.FC = () => {
     const theme = useTheme();
+    const { user } = useAuth();
     const [reports, setReports] = useState<ReportRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [dateFormat, setDateFormat] = useState('DD-MM-YYYY');
 
     useEffect(() => {
         (async () => {
             try {
+                if (user) {
+                    const prefs = await window.api.getUserPreferences(user.id);
+                    if (prefs?.date_format) setDateFormat(prefs.date_format);
+                }
                 const result = await window.api.getReports();
                 setReports(result);
             } catch {
@@ -48,7 +56,7 @@ const ReportsPage: React.FC = () => {
                 setLoading(false);
             }
         })();
-    }, []);
+    }, [user]);
 
     const handleOpenFile = async (filePath: string) => {
         await window.api.openFile(filePath);

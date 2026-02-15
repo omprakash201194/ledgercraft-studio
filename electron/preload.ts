@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
     // Auth
     login: (username: string, password: string) => ipcRenderer.invoke('auth:login', username, password),
     logout: () => ipcRenderer.invoke('auth:logout'),
+    tryAutoLogin: () => ipcRenderer.invoke('auth:try-auto-login'),
     getCurrentUser: () => ipcRenderer.invoke('auth:get-current-user'),
     createUser: (username: string, password: string, role: string) => ipcRenderer.invoke('auth:create-user', username, password, role),
     getAllUsers: () => ipcRenderer.invoke('auth:get-all-users'),
@@ -38,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
 
     // Categories & Lifecycle
     getCategoryTree: (type: 'TEMPLATE' | 'FORM') => ipcRenderer.invoke('category:get-tree', type),
+    getCategoryChain: (id: string) => ipcRenderer.invoke('category:get-chain', id),
     createCategory: (input: unknown) => ipcRenderer.invoke('category:create', input),
     renameCategory: (id: string, newName: string) => ipcRenderer.invoke('category:rename', id, newName),
     deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => ipcRenderer.invoke('category:delete', id, type),
@@ -50,4 +52,6 @@ contextBridge.exposeInMainWorld('api', {
     // Audit & Analytics
     getAuditLogs: (params: any) => ipcRenderer.invoke('audit:get-logs', params),
     getAnalytics: () => ipcRenderer.invoke('audit:get-analytics'),
+    getUserPreferences: (userId: string) => ipcRenderer.invoke('prefs:get', userId),
+    updateUserPreferences: (userId: string, prefs: any) => ipcRenderer.invoke('prefs:update', userId, prefs),
 });

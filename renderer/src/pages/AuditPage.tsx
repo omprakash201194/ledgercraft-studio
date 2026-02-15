@@ -23,6 +23,8 @@ import {
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
+import { useAuth } from '../components/AuthContext';
+import { formatDate } from '../utils/dateUtils';
 
 const ACTION_TYPES = [
     'USER_LOGIN', 'USER_LOGOUT', 'USER_CREATE',
@@ -34,9 +36,10 @@ const ACTION_TYPES = [
 
 interface LogRowProps {
     log: AuditLog;
+    dateFormat: string;
 }
 
-const LogRow: React.FC<LogRowProps> = ({ log }) => {
+const LogRow: React.FC<LogRowProps> = ({ log, dateFormat }) => {
     const [open, setOpen] = useState(false);
     const hasMetadata = log.metadata_json && log.metadata_json !== '{}';
 
@@ -50,7 +53,7 @@ const LogRow: React.FC<LogRowProps> = ({ log }) => {
                         </IconButton>
                     )}
                 </TableCell>
-                <TableCell>{new Date(log.created_at).toLocaleString()}</TableCell>
+                <TableCell>{formatDate(log.created_at, dateFormat)}</TableCell>
                 <TableCell>{log.username || log.user_id}</TableCell>
                 <TableCell>
                     <Chip label={log.action_type} size="small" color="primary" variant="outlined" />
@@ -76,9 +79,11 @@ const LogRow: React.FC<LogRowProps> = ({ log }) => {
 };
 
 const AuditPage: React.FC = () => {
+    const { user } = useAuth();
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [dateFormat, setDateFormat] = useState('DD-MM-YYYY');
 
     // Pagination
     const [page, setPage] = useState(0); // MUI is 0-indexed
@@ -88,6 +93,16 @@ const AuditPage: React.FC = () => {
     const [filterAction, setFilterAction] = useState('');
     const [filterUser, setFilterUser] = useState(''); // User ID or username search? Backend expects userId. 
     // Implementing user filter might require fetching users first. For now, let's filter by Action.
+
+    // Implementing user filter might require fetching users first. For now, let's filter by Action.
+
+    useEffect(() => {
+        if (user) {
+            window.api.getUserPreferences(user.id).then(prefs => {
+                if (prefs?.date_format) setDateFormat(prefs.date_format);
+            });
+        }
+    }, [user]);
 
     const loadLogs = useCallback(async () => {
         setLoading(true);
@@ -175,7 +190,7 @@ const AuditPage: React.FC = () => {
                             </TableRow>
                         ) : (
                             logs.map((log) => (
-                                <LogRow key={log.id} log={log} />
+                                <LogRow key={log.id} log={log} dateFormat={dateFormat} />
                             ))
                         )}
                     </TableBody>

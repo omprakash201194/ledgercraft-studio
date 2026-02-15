@@ -1,16 +1,23 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, ReactNode } from 'react';
-import { ThemeProvider as MuiThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider as MuiThemeProvider, createTheme, CssBaseline, Theme } from '@mui/material';
 
 type ThemeMode = 'light' | 'dark';
 
 interface ThemeContextType {
     mode: ThemeMode;
     toggleTheme: () => void;
+    setMode: (mode: ThemeMode) => void;
+    theme: Theme;
 }
 
-const ThemeContext = createContext<ThemeContextType>({
+// Initial dummy theme to satisfy type
+const initialTheme = createTheme();
+
+export const ThemeContext = createContext<ThemeContextType>({
     mode: 'dark',
     toggleTheme: () => { },
+    setMode: () => { },
+    theme: initialTheme,
 });
 
 export const useThemeContext = () => useContext(ThemeContext);
@@ -22,18 +29,22 @@ const getStoredTheme = (): ThemeMode => {
     } catch {
         // ignore
     }
-    return 'dark';
+    return 'dark'; // Default
 };
 
 export const ThemeContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [mode, setMode] = useState<ThemeMode>(getStoredTheme);
+    const [mode, setModeState] = useState<ThemeMode>(getStoredTheme);
 
     useEffect(() => {
         localStorage.setItem('ledgercraft-theme', mode);
     }, [mode]);
 
     const toggleTheme = () => {
-        setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
+        setModeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+    };
+
+    const setMode = (newMode: ThemeMode) => {
+        setModeState(newMode);
     };
 
     const theme = useMemo(
@@ -102,7 +113,7 @@ export const ThemeContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     );
 
     return (
-        <ThemeContext.Provider value={{ mode, toggleTheme }}>
+        <ThemeContext.Provider value={{ mode, toggleTheme, setMode, theme }}>
             <MuiThemeProvider theme={theme}>
                 <CssBaseline />
                 {children}

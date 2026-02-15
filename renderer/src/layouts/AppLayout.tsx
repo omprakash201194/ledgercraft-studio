@@ -31,18 +31,17 @@ import {
     Assessment as ReportsIcon,
     People as UsersIcon,
     Settings as SettingsIcon,
-    DarkMode as DarkModeIcon,
-    LightMode as LightModeIcon,
     AutoStories as LogoIcon,
     Logout as LogoutIcon,
     Info as InfoIcon,
     History as AuditIcon,
-    Analytics as AnalyticsIcon
-} from '@mui/icons-material';
-import { useThemeContext } from '../components/ThemeContext';
-import { useAuth } from '../components/AuthContext';
+    Analytics as AnalyticsIcon,
+    Menu as MenuIcon,
+    ChevronLeft as ChevronLeftIcon,
+} from '@mui/icons-material'; import { useAuth } from '../components/AuthContext';
 
 const SIDEBAR_WIDTH = 260;
+const COLLAPSED_SIDEBAR_WIDTH = 70;
 
 interface NavItem {
     label: string;
@@ -67,8 +66,10 @@ const AppLayout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const theme = useTheme();
-    const { mode, toggleTheme } = useThemeContext();
     const { user, logout } = useAuth();
+
+    // Sidebar State
+    const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
 
     // DB Integrity
     const [dbStatus, setDbStatus] = React.useState<{ isCorrupted: boolean; error: string | null } | null>(null);
@@ -92,25 +93,39 @@ const AppLayout: React.FC = () => {
         navigate('/login', { replace: true });
     };
 
+    const toggleSidebar = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
+
     return (
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
             {/* Sidebar */}
             <Drawer
                 variant="permanent"
                 sx={{
-                    width: SIDEBAR_WIDTH,
+                    width: isSidebarOpen ? SIDEBAR_WIDTH : COLLAPSED_SIDEBAR_WIDTH,
                     flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                    transition: theme.transitions.create('width', {
+                        easing: theme.transitions.easing.sharp,
+                        duration: theme.transitions.duration.enteringScreen,
+                    }),
                     '& .MuiDrawer-paper': {
-                        width: SIDEBAR_WIDTH,
+                        width: isSidebarOpen ? SIDEBAR_WIDTH : COLLAPSED_SIDEBAR_WIDTH,
                         boxSizing: 'border-box',
                         background:
-                            mode === 'dark'
+                            theme.palette.mode === 'dark'
                                 ? 'linear-gradient(180deg, #0F1525 0%, #0A0E1A 100%)'
                                 : 'linear-gradient(180deg, #FFFFFF 0%, #F4F6FB 100%)',
                         borderRight: `1px solid ${theme.palette.divider}`,
-                        px: 1.5,
+                        px: 1,
                         display: 'flex',
                         flexDirection: 'column',
+                        transition: theme.transitions.create('width', {
+                            easing: theme.transitions.easing.sharp,
+                            duration: theme.transitions.duration.enteringScreen,
+                        }),
+                        overflowX: 'hidden',
                     },
                 }}
             >
@@ -120,9 +135,10 @@ const AppLayout: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 1.5,
-                        px: 1.5,
+                        px: isSidebarOpen ? 1.5 : 1,
                         py: 2.5,
                         mb: 1,
+                        justifyContent: isSidebarOpen ? 'flex-start' : 'center',
                     }}
                 >
                     <Box
@@ -133,20 +149,23 @@ const AppLayout: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0,
                             background: 'linear-gradient(135deg, #7C4DFF 0%, #448AFF 100%)',
                             boxShadow: '0 4px 12px rgba(124,77,255,0.3)',
                         }}
                     >
                         <LogoIcon sx={{ color: '#fff', fontSize: 22 }} />
                     </Box>
-                    <Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
-                            LedgerCraft
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                            Studio
-                        </Typography>
-                    </Box>
+                    {isSidebarOpen && (
+                        <Box sx={{ minWidth: 0, opacity: isSidebarOpen ? 1 : 0, transition: 'opacity 0.2s' }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.01em' }} noWrap>
+                                LedgerCraft
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }} noWrap>
+                                Studio
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
 
                 <Divider sx={{ mb: 1.5 }} />
@@ -156,87 +175,119 @@ const AppLayout: React.FC = () => {
                     {navItems.map((item) => {
                         const isActive = location.pathname === item.path;
                         return (
-                            <ListItemButton
-                                key={item.path}
-                                selected={isActive}
-                                onClick={() => navigate(item.path)}
-                                sx={{
-                                    px: 1.5,
-                                    py: 1,
-                                    mb: 0.3,
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': {
-                                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                        transform: 'translateX(2px)',
-                                    },
-                                    ...(isActive && {
-                                        '& .MuiListItemIcon-root': {
-                                            color: theme.palette.primary.main,
+                            <Tooltip title={!isSidebarOpen ? item.label : ''} placement="right" key={item.path}>
+                                <ListItemButton
+                                    selected={isActive}
+                                    onClick={() => navigate(item.path)}
+                                    sx={{
+                                        px: 1.5,
+                                        py: 1,
+                                        mb: 0.3,
+                                        justifyContent: isSidebarOpen ? 'initial' : 'center',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': {
+                                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
                                         },
-                                        '& .MuiListItemText-primary': {
-                                            color: theme.palette.primary.main,
-                                            fontWeight: 600,
-                                        },
-                                    }),
-                                }}
-                            >
-                                <ListItemIcon sx={{ minWidth: 38, color: 'text.secondary' }}>
-                                    {item.icon}
-                                </ListItemIcon>
-                                <ListItemText
-                                    primary={item.label}
-                                    primaryTypographyProps={{
-                                        fontSize: '0.875rem',
-                                        fontWeight: 500,
+                                        ...(isActive && {
+                                            '& .MuiListItemIcon-root': {
+                                                color: theme.palette.primary.main,
+                                            },
+                                            '& .MuiListItemText-primary': {
+                                                color: theme.palette.primary.main,
+                                                fontWeight: 600,
+                                            },
+                                        }),
                                     }}
-                                />
-                            </ListItemButton>
+                                >
+                                    <ListItemIcon
+                                        sx={{
+                                            minWidth: 0,
+                                            mr: isSidebarOpen ? 2 : 0,
+                                            justifyContent: 'center',
+                                            color: 'text.secondary'
+                                        }}
+                                    >
+                                        {item.icon}
+                                    </ListItemIcon>
+                                    {isSidebarOpen && (
+                                        <ListItemText
+                                            primary={item.label}
+                                            primaryTypographyProps={{
+                                                fontSize: '0.875rem',
+                                                fontWeight: 500,
+                                                noWrap: true
+                                            }}
+                                            sx={{ opacity: isSidebarOpen ? 1 : 0 }}
+                                        />
+                                    )}
+                                </ListItemButton>
+                            </Tooltip>
                         );
                     })}
                 </List>
 
                 {/* User Info + Logout at Bottom */}
                 <Divider sx={{ mt: 1 }} />
-                <Box sx={{ px: 1.5, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.3 }} noWrap>
-                            {user?.username}
-                        </Typography>
-                        <Chip
-                            label={user?.role}
-                            size="small"
-                            sx={{
-                                height: 20,
-                                fontSize: '0.65rem',
-                                fontWeight: 700,
-                                mt: 0.3,
-                                backgroundColor:
-                                    user?.role === 'ADMIN'
-                                        ? alpha(theme.palette.warning.main, 0.15)
-                                        : alpha(theme.palette.info.main, 0.15),
-                                color:
-                                    user?.role === 'ADMIN'
-                                        ? theme.palette.warning.main
-                                        : theme.palette.info.main,
-                            }}
-                        />
-                    </Box>
-                    <Tooltip title="Sign out">
-                        <IconButton
-                            id="logout-button"
-                            onClick={handleLogout}
-                            size="small"
-                            sx={{
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    color: theme.palette.error.main,
-                                    backgroundColor: alpha(theme.palette.error.main, 0.08),
-                                },
-                            }}
-                        >
-                            <LogoutIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
+                <Box sx={{ px: 1.5, py: 2, display: 'flex', alignItems: 'center', gap: 1, justifyContent: isSidebarOpen ? 'flex-start' : 'center', flexDirection: isSidebarOpen ? 'row' : 'column' }}>
+                    {isSidebarOpen ? (
+                        <>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.3 }} noWrap>
+                                    {user?.username}
+                                </Typography>
+                                <Chip
+                                    label={user?.role}
+                                    size="small"
+                                    sx={{
+                                        height: 20,
+                                        fontSize: '0.65rem',
+                                        fontWeight: 700,
+                                        mt: 0.3,
+                                        backgroundColor:
+                                            user?.role === 'ADMIN'
+                                                ? alpha(theme.palette.warning.main, 0.15)
+                                                : alpha(theme.palette.info.main, 0.15),
+                                        color:
+                                            user?.role === 'ADMIN'
+                                                ? theme.palette.warning.main
+                                                : theme.palette.info.main,
+                                    }}
+                                />
+                            </Box>
+                            <Tooltip title="Sign out">
+                                <IconButton
+                                    id="logout-button"
+                                    onClick={handleLogout}
+                                    size="small"
+                                    sx={{
+                                        color: 'text.secondary',
+                                        '&:hover': {
+                                            color: theme.palette.error.main,
+                                            backgroundColor: alpha(theme.palette.error.main, 0.08),
+                                        },
+                                    }}
+                                >
+                                    <LogoutIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </>
+                    ) : (
+                        <Tooltip title="Sign out">
+                            <IconButton
+                                onClick={handleLogout}
+                                size="small"
+                                sx={{
+                                    color: 'text.secondary',
+                                    '&:hover': {
+                                        color: theme.palette.error.main,
+                                        backgroundColor: alpha(theme.palette.error.main, 0.08),
+                                    },
+                                }}
+                            >
+                                <LogoutIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    )}
                 </Box>
             </Drawer>
 
@@ -254,27 +305,18 @@ const AppLayout: React.FC = () => {
                     }}
                 >
                     <Toolbar sx={{ justifyContent: 'space-between' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.05rem' }}>
-                            LedgerCraft Studio
-                        </Typography>
-                        <IconButton
-                            onClick={toggleTheme}
-                            size="medium"
-                            sx={{
-                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.16),
-                                    transform: 'rotate(20deg)',
-                                },
-                            }}
-                        >
-                            {mode === 'dark' ? (
-                                <LightModeIcon sx={{ color: '#FFD54F' }} />
-                            ) : (
-                                <DarkModeIcon sx={{ color: '#5C35D2' }} />
-                            )}
-                        </IconButton>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <IconButton
+                                onClick={toggleSidebar}
+                                edge="start"
+                                sx={{ color: 'text.secondary' }}
+                            >
+                                {isSidebarOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+                            </IconButton>
+                            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.05rem' }}>
+                                LedgerCraft Studio
+                            </Typography>
+                        </Box>
                     </Toolbar>
                 </AppBar>
 

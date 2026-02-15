@@ -42,6 +42,30 @@ export function getCategoryTree(type: 'TEMPLATE' | 'FORM'): CategoryNode[] {
 }
 
 /**
+ * Get the ancestral path for a category (Breadcrumbs).
+ * Returns array from root to current category.
+ */
+export function getCategoryChain(categoryId: string): { id: string; name: string }[] {
+    const chain: { id: string; name: string }[] = [];
+    let currentId: string | null = categoryId;
+
+    // Safety limit to prevent infinite loops if circular ref exists
+    let depth = 0;
+    const MAX_DEPTH = 20;
+
+    while (currentId && depth < MAX_DEPTH) {
+        const category = database.getCategoryById(currentId);
+        if (!category) break;
+
+        chain.unshift({ id: category.id, name: category.name });
+        currentId = category.parent_id;
+        depth++;
+    }
+
+    return chain;
+}
+
+/**
  * Recursive function to build tree from flat list.
  */
 function buildTree(categories: Category[], parentId: string | null = null): CategoryNode[] {

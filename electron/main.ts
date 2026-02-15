@@ -20,6 +20,7 @@ function createWindow(): void {
         minWidth: 900,
         minHeight: 600,
         title: 'LedgerCraft Studio',
+        icon: path.join(__dirname, '..', 'resources', 'icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,

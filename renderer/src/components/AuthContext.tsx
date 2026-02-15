@@ -31,9 +31,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         (async () => {
             try {
-                const currentUser = await window.api?.getCurrentUser();
-                if (currentUser) {
-                    setUser(currentUser);
+                // Try auto login first
+                const loginResult = await window.api.tryAutoLogin();
+                if (loginResult.success && loginResult.user) {
+                    setUser(loginResult.user);
+                } else {
+                    // Fallback to memory or just null
+                    const currentUser = await window.api?.getCurrentUser();
+                    if (currentUser) {
+                        setUser(currentUser);
+                    }
                 }
             } catch {
                 // No session

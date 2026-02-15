@@ -1,6 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { database, User } from './database';
 import { logAction } from './auditService';
+import path from 'path';
+import fs from 'fs';
+import { app } from 'electron';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -51,6 +54,9 @@ export function login(username: string, password: string): AuthResult {
         entityType: 'USER',
         entityId: user.id
     });
+
+    saveSession(currentUser);
+
     return { success: true, user: currentUser };
 }
 
@@ -65,6 +71,68 @@ export function logout(): void {
         });
     }
     currentUser = null;
+    deleteSession();
+}
+
+// ─── Session Persistence ─────────────────────────────────
+
+const SESSION_FILE = path.join(app.getPath('userData'), 'session.json');
+
+interface SessionData {
+    userId: string;
+    loginTime: number;
+}
+
+function saveSession(user: SafeUser) {
+    try {
+        const data: SessionData = {
+            userId: user.id,
+            loginTime: Date.now()
+        };
+        fs.writeFileSync(SESSION_FILE, JSON.stringify(data));
+    } catch (err) {
+        console.error('[Auth] Failed to save session:', err);
+    }
+}
+
+function deleteSession() {
+    try {
+        if (fs.existsSync(SESSION_FILE)) {
+            fs.unlinkSync(SESSION_FILE);
+        }
+    } catch (err) {
+        console.error('[Auth] Failed to delete session:', err);
+    }
+}
+
+export function tryAutoLogin(): AuthResult {
+    try {
+        if (!fs.existsSync(SESSION_FILE)) return { success: false };
+
+        const content = fs.readFileSync(SESSION_FILE, 'utf-8');
+        const data: SessionData = JSON.parse(content);
+
+        // Check if expired (24h)
+        const age = Date.now() - data.loginTime;
+        if (age > 24 * 60 * 60 * 1000) {
+            console.log('[Auth] Session expired');
+            deleteSession();
+            return { success: false, error: 'Session expired' };
+        }
+
+        const user = database.getUserById(data.userId);
+        if (!user) {
+            deleteSession();
+            return { success: false, error: 'User not found' };
+        }
+
+        currentUser = toSafeUser(user);
+        console.log(`[Auth] Auto-login successful: ${user.username}`);
+        return { success: true, user: currentUser };
+    } catch (err) {
+        console.error('[Auth] Auto-login failed:', err);
+        return { success: false, error: 'Failed to restore session' };
+    }
 }
 
 export function getCurrentUser(): SafeUser | null {

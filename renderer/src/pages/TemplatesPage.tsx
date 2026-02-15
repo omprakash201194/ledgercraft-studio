@@ -28,6 +28,9 @@ import {
     Grid,
     Menu,
     MenuItem,
+    Tooltip,
+    Breadcrumbs,
+    Link,
 } from '@mui/material';
 import {
     CloudUpload as UploadIcon,
@@ -38,6 +41,8 @@ import {
     DriveFileMove as MoveIcon,
     Delete as DeleteIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../components/AuthContext';
+import { formatDate } from '../utils/dateUtils';
 import CategoryTree from '../components/CategoryTree';
 
 interface TemplateRecord {
@@ -57,12 +62,14 @@ interface TemplatePlaceholder {
 
 const TemplatesPage: React.FC = () => {
     const theme = useTheme();
+    const { user } = useAuth();
     const [templates, setTemplates] = useState<TemplateRecord[]>([]);
     const [filteredTemplates, setFilteredTemplates] = useState<TemplateRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [dateFormat, setDateFormat] = useState('DD-MM-YYYY');
 
     // Category State
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -76,6 +83,19 @@ const TemplatesPage: React.FC = () => {
     // Context Menu (Move/Delete)
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [menuTarget, setMenuTarget] = useState<TemplateRecord | null>(null);
+
+    // Breadcrumbs
+    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
+
+    useEffect(() => {
+        if (!selectedCategoryId) {
+            setBreadcrumbs([]);
+            return;
+        }
+        window.api.getCategoryChain(selectedCategoryId)
+            .then(setBreadcrumbs)
+            .catch(() => setBreadcrumbs([]));
+    }, [selectedCategoryId]);
 
     // Move Dialog
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
@@ -94,8 +114,13 @@ const TemplatesPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        if (user) {
+            window.api.getUserPreferences(user.id).then(prefs => {
+                if (prefs?.date_format) setDateFormat(prefs.date_format);
+            });
+        }
         loadTemplates();
-    }, [loadTemplates]);
+    }, [loadTemplates, user]);
 
     // Filter templates when selection changes
     useEffect(() => {
@@ -254,6 +279,47 @@ const TemplatesPage: React.FC = () => {
                                 flexDirection: 'column',
                             }}
                         >
+
+                            {/* Breadcrumbs */}
+                            <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, backgroundColor: theme.palette.action.hover }}>
+                                <Breadcrumbs aria-label="breadcrumb">
+                                    <Link
+                                        underline="hover"
+                                        color="inherit"
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setSelectedCategoryId(null);
+                                        }}
+                                        sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                                    >
+                                        <Typography variant="body2">All Templates</Typography>
+                                    </Link>
+                                    {breadcrumbs.map((crumb, index) => {
+                                        const isLast = index === breadcrumbs.length - 1;
+                                        return isLast ? (
+                                            <Typography key={crumb.id} color="text.primary" variant="body2" sx={{ fontWeight: 600 }}>
+                                                {crumb.name}
+                                            </Typography>
+                                        ) : (
+                                            <Link
+                                                key={crumb.id}
+                                                underline="hover"
+                                                color="inherit"
+                                                href="#"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setSelectedCategoryId(crumb.id);
+                                                }}
+                                                sx={{ cursor: 'pointer' }}
+                                            >
+                                                <Typography variant="body2">{crumb.name}</Typography>
+                                            </Link>
+                                        );
+                                    })}
+                                </Breadcrumbs>
+                            </Box>
+
                             <TableContainer sx={{ flexGrow: 1 }}>
                                 <Table stickyHeader>
                                     <TableHead>
@@ -282,7 +348,7 @@ const TemplatesPage: React.FC = () => {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    {new Date(template.created_at).toLocaleDateString()}
+                                                    {formatDate(template.created_at, dateFormat)}
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <Button

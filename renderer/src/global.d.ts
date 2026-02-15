@@ -187,6 +187,13 @@ declare global {
         monthlyTrend: { name: string; value: number }[];
     }
 
+    interface UserPreferences {
+        user_id: string;
+        theme: 'light' | 'dark';
+        date_format: string;
+        updated_at: string;
+    }
+
     interface Window {
         api: {
             // ... existing ...
@@ -203,6 +210,7 @@ declare global {
             // Auth
             login: (username: string, password: string) => Promise<AuthResult>;
             logout: () => Promise<{ success: boolean }>;
+            tryAutoLogin: () => Promise<AuthResult>;
             getCurrentUser: () => Promise<SafeUser | null>;
             createUser: (username: string, password: string, role: string) => Promise<AuthResult>;
             getAllUsers: () => Promise<GetAllUsersResult>;
@@ -227,6 +235,7 @@ declare global {
 
             // Categories & Lifecycle
             getCategoryTree: (type: 'TEMPLATE' | 'FORM') => Promise<CategoryNode[]>;
+            getCategoryChain: (id: string) => Promise<{ id: string; name: string }[]>;
             createCategory: (input: CreateCategoryInput) => Promise<ServiceResult>;
             renameCategory: (id: string, newName: string) => Promise<ServiceResult>;
             deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => Promise<ServiceResult>;
@@ -239,6 +248,9 @@ declare global {
             // Audit
             getAuditLogs(params: { page: number; pageSize: number; filters?: any }): Promise<{ logs: AuditLog[]; total: number }>;
             getAnalytics(): Promise<AnalyticsStats>;
+
+            getUserPreferences(userId: string): Promise<UserPreferences>;
+            updateUserPreferences(userId: string, prefs: Partial<UserPreferences>): Promise<UserPreferences>;
         };
     }
 }

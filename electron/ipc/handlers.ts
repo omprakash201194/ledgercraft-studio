@@ -1,14 +1,16 @@
 import { ipcMain, app, dialog, shell } from 'electron';
 import fs from 'fs';
-import { login, logout, getCurrentUser, createUser } from '../auth';
+import { login, logout, tryAutoLogin, getCurrentUser, createUser } from '../auth';
 import { database } from '../database';
 import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
 import { createForm, getForms, getFormById, getFormFields, updateForm, generateFieldsFromTemplate, CreateFormInput, UpdateFormInput } from '../formService';
 import { generateReport, getReports, GenerateReportInput } from '../reportService';
 import { getAuditLogs, getAnalytics } from '../auditService';
+import { getUserPreferences, updateUserPreferences } from '../preferenceService';
 import {
     getCategoryTree,
+    getCategoryChain,
     createCategory,
     renameCategory,
     deleteCategory,
@@ -30,6 +32,10 @@ export function registerIpcHandlers(): void {
     // ─── Categories & Lifecycle ──────────────────────────
     ipcMain.handle('category:get-tree', (_event, type: 'TEMPLATE' | 'FORM') => {
         return getCategoryTree(type);
+    });
+
+    ipcMain.handle('category:get-chain', (_event, id: string) => {
+        return getCategoryChain(id);
     });
 
     ipcMain.handle('category:create', (_event, input: CreateCategoryInput) => {
@@ -106,6 +112,10 @@ export function registerIpcHandlers(): void {
     // ─── Auth ────────────────────────────────────────────
     ipcMain.handle('auth:login', (_event, username: string, password: string) => {
         return login(username, password);
+    });
+
+    ipcMain.handle('auth:try-auto-login', async () => {
+        return tryAutoLogin();
     });
 
     ipcMain.handle('auth:logout', () => {
@@ -234,6 +244,15 @@ export function registerIpcHandlers(): void {
 
     ipcMain.handle('audit:get-analytics', () => {
         return getAnalytics();
+    });
+
+    // ─── Preferences ─────────────────────────────────────
+    ipcMain.handle('prefs:get', (_event, userId: string) => {
+        return getUserPreferences(userId);
+    });
+
+    ipcMain.handle('prefs:update', (_event, userId: string, prefs: any) => {
+        return updateUserPreferences(userId, prefs);
     });
 }
 

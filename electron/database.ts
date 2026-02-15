@@ -203,6 +203,14 @@ class Database {
         metadata_json TEXT,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        user_id TEXT PRIMARY KEY,
+        theme TEXT NOT NULL DEFAULT 'light',
+        date_format TEXT NOT NULL DEFAULT 'DD-MM-YYYY',
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
     `);
 
     // ─── Migrations ──────────────────────────────────────
@@ -241,6 +249,12 @@ class Database {
     const db = this.getConnection();
     const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
     return stmt.get(username) as User | undefined;
+  }
+
+  getUserById(id: string): User | undefined {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+    return stmt.get(id) as User | undefined;
   }
 
   getUserCount(): number {

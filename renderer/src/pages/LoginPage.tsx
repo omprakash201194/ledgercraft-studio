@@ -12,11 +12,14 @@ import {
     alpha,
     Fade,
     IconButton,
+    InputAdornment
 } from '@mui/material';
 import {
     AutoStories as LogoIcon,
     DarkMode as DarkModeIcon,
     LightMode as LightModeIcon,
+    Visibility,
+    VisibilityOff
 } from '@mui/icons-material';
 import { useAuth } from '../components/AuthContext';
 import { useThemeContext } from '../components/ThemeContext';
@@ -29,6 +32,7 @@ const LoginPage: React.FC = () => {
 
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -145,13 +149,26 @@ const LoginPage: React.FC = () => {
                         <TextField
                             id="login-password"
                             label="Password"
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             fullWidth
                             required
                             sx={{ mb: 3 }}
                             disabled={loading}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            edge="end"
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                         />
                         <Button
                             id="login-submit"

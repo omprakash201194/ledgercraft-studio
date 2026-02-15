@@ -28,6 +28,9 @@ import {
     MenuItem,
     Divider,
     CircularProgress,
+    Tooltip,
+    Breadcrumbs,
+    Link,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -63,7 +66,22 @@ const FormsPage: React.FC = () => {
     // ─── Dialogs & Menus ─────────────────────────────────
     const [viewingForm, setViewingForm] = useState<FormRecord | null>(null);
     const [formFields, setFormFields] = useState<FormFieldRecord[]>([]);
+
+
     const [loadingFields, setLoadingFields] = useState(false);
+
+    // Breadcrumbs
+    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
+
+    useEffect(() => {
+        if (!selectedCategoryId) {
+            setBreadcrumbs([]);
+            return;
+        }
+        window.api.getCategoryChain(selectedCategoryId)
+            .then(setBreadcrumbs)
+            .catch(() => setBreadcrumbs([]));
+    }, [selectedCategoryId]);
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [menuTarget, setMenuTarget] = useState<FormRecord | null>(null);
@@ -207,6 +225,46 @@ const FormsPage: React.FC = () => {
                     {/* Right Panel */}
                     <Grid item xs={12} md={9} sx={{ height: '100%', overflow: 'hidden' }}>
                         <Paper elevation={0} sx={{ height: '100%', border: `1px solid ${theme.palette.divider}`, display: 'flex', flexDirection: 'column' }}>
+                            {/* Breadcrumbs */}
+                            <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, backgroundColor: theme.palette.action.hover }}>
+                                <Breadcrumbs aria-label="breadcrumb">
+                                    <Link
+                                        underline="hover"
+                                        color="inherit"
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setSelectedCategoryId(null);
+                                        }}
+                                        sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                                    >
+                                        <Typography variant="body2">All Forms</Typography>
+                                    </Link>
+                                    {breadcrumbs.map((crumb, index) => {
+                                        const isLast = index === breadcrumbs.length - 1;
+                                        return isLast ? (
+                                            <Typography key={crumb.id} color="text.primary" variant="body2" sx={{ fontWeight: 600 }}>
+                                                {crumb.name}
+                                            </Typography>
+                                        ) : (
+                                            <Link
+                                                key={crumb.id}
+                                                underline="hover"
+                                                color="inherit"
+                                                href="#"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setSelectedCategoryId(crumb.id);
+                                                }}
+                                                sx={{ cursor: 'pointer' }}
+                                            >
+                                                <Typography variant="body2">{crumb.name}</Typography>
+                                            </Link>
+                                        );
+                                    })}
+                                </Breadcrumbs>
+                            </Box>
+
                             <TableContainer sx={{ flexGrow: 1 }}>
                                 <Table stickyHeader>
                                     <TableHead>
