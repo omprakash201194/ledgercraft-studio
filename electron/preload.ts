@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('api', {
     // Reports
     generateReport: (input: unknown) => ipcRenderer.invoke('report:generate', input),
     getReports: () => ipcRenderer.invoke('report:get-all'),
+    downloadReport: (filePath: string) => ipcRenderer.invoke('report:download', filePath),
 
     // Shell
     openFile: (filePath: string) => ipcRenderer.invoke('shell:open-file', filePath),

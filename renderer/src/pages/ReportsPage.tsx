@@ -19,6 +19,7 @@ import {
 import {
     Description as ReportIcon,
     OpenInNew as OpenIcon,
+    Download as DownloadIcon,
 } from '@mui/icons-material';
 
 interface ReportRecord {
@@ -51,6 +52,14 @@ const ReportsPage: React.FC = () => {
 
     const handleOpenFile = async (filePath: string) => {
         await window.api.openFile(filePath);
+    };
+
+    const handleDownload = async (filePath: string) => {
+        try {
+            await window.api.downloadReport(filePath);
+        } catch {
+            // ignore error
+        }
     };
 
     /** Extract just the filename from a full path. */
@@ -126,17 +135,29 @@ const ReportsPage: React.FC = () => {
                                                 </Typography>
                                             </TableCell>
                                             <TableCell align="right">
-                                                <Button
-                                                    size="small"
-                                                    startIcon={<OpenIcon />}
-                                                    onClick={() => handleOpenFile(report.file_path)}
-                                                    sx={{ textTransform: 'none' }}
-                                                >
-                                                    Open
-                                                </Button>
+                                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                                                    <Button
+                                                        size="small"
+                                                        startIcon={<DownloadIcon />}
+                                                        onClick={() => handleDownload(report.file_path)}
+                                                        sx={{ textTransform: 'none' }}
+                                                        color="secondary"
+                                                    >
+                                                        Download
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        startIcon={<OpenIcon />}
+                                                        onClick={() => handleOpenFile(report.file_path)}
+                                                        sx={{ textTransform: 'none' }}
+                                                    >
+                                                        Open
+                                                    </Button>
+                                                </Box>
                                             </TableCell>
                                         </TableRow>
                                     ))}
+
                                     {reports.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={5} sx={{ textAlign: 'center', py: 6 }}>

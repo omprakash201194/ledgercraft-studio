@@ -103,6 +103,31 @@ export function registerIpcHandlers(): void {
         return getReports();
     });
 
+    ipcMain.handle('report:download', async (_event, filePath: string) => {
+        if (!fs.existsSync(filePath)) {
+            return { success: false, error: 'Source file not found' };
+        }
+
+        const fileName = filePath.split(/[\\/]/).pop() || 'report.docx';
+        const { canceled, filePath: destinationPath } = await dialog.showSaveDialog({
+            title: 'Download Report',
+            defaultPath: fileName,
+            filters: [{ name: 'Word Documents', extensions: ['docx'] }],
+        });
+
+        if (canceled || !destinationPath) {
+            return { success: false, error: 'Download canceled' };
+        }
+
+        try {
+            fs.copyFileSync(filePath, destinationPath);
+            return { success: true, filePath: destinationPath };
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            return { success: false, error: `Failed to save file: ${message}` };
+        }
+    });
+
     // ─── Shell ───────────────────────────────────────────
     ipcMain.handle('shell:open-file', (_event, filePath: string) => {
         return shell.openPath(filePath);

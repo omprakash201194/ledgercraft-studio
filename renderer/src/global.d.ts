@@ -142,6 +142,7 @@ declare global {
             // Reports
             generateReport: (input: GenerateReportInput) => Promise<GenerateReportResult>;
             getReports: () => Promise<ReportRecord[]>;
+            downloadReport: (filePath: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
 
             // Shell
             openFile: (filePath: string) => Promise<string>;
