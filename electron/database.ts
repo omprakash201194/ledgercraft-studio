@@ -267,6 +267,12 @@ class Database {
     return stmt.all() as Template[];
   }
 
+  getTemplateById(id: string): Template | undefined {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT * FROM templates WHERE id = ?');
+    return stmt.get(id) as Template | undefined;
+  }
+
   getTemplatesWithPlaceholderCount(): (Template & { placeholder_count: number })[] {
     const db = this.getConnection();
     const stmt = db.prepare(`

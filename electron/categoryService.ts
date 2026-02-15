@@ -24,6 +24,10 @@ export interface ServiceResult {
     error?: string;
 }
 
+export interface MoveItemResult extends ServiceResult {
+    item?: any;
+}
+
 // ─── Service ─────────────────────────────────────────────
 
 /**
@@ -96,15 +100,45 @@ export function deleteCategory(id: string, type: 'TEMPLATE' | 'FORM'): ServiceRe
     }
 }
 
-export function moveItem(input: MoveItemInput): ServiceResult {
+export function moveItem(input: MoveItemInput): MoveItemResult {
     try {
-        if (input.type === 'TEMPLATE') {
-            database.updateTemplateCategory(input.itemId, input.targetCategoryId);
-        } else {
-            database.updateFormCategory(input.itemId, input.targetCategoryId);
+        console.log(`[CategoryService] Moving Item: type=${input.type}, itemId=${input.itemId}, target=${input.targetCategoryId}`);
+
+        // Validate Target Category (if not root)
+        if (input.targetCategoryId) {
+            const category = database.getCategoryById(input.targetCategoryId);
+            if (!category) {
+                console.error(`[CategoryService] Target category not found: ${input.targetCategoryId}`);
+                return { success: false, error: 'Target category does not exist.' };
+            }
+            if (category.type !== input.type) {
+                console.error(`[CategoryService] Type mismatch: Item=${input.type}, Category=${category.type}`);
+                return { success: false, error: `Cannot move ${input.type} into ${category.type} category.` };
+            }
         }
-        return { success: true };
+
+        let updatedItem: any;
+
+        if (input.type === 'TEMPLATE') {
+            const template = database.getTemplateById(input.itemId);
+            if (!template) {
+                return { success: false, error: 'Template not found' };
+            }
+            database.updateTemplateCategory(input.itemId, input.targetCategoryId);
+            updatedItem = database.getTemplateById(input.itemId); // Refetch
+        } else {
+            const form = database.getFormById(input.itemId);
+            if (!form) {
+                return { success: false, error: 'Form not found' };
+            }
+            database.updateFormCategory(input.itemId, input.targetCategoryId);
+            updatedItem = database.getFormById(input.itemId); // Refetch
+        }
+
+        console.log(`[CategoryService] Move successful. New Category: ${input.targetCategoryId}`);
+        return { success: true, item: updatedItem };
     } catch (e) {
+        console.error(`[CategoryService] Move failed:`, e);
         return { success: false, error: String(e) };
     }
 }

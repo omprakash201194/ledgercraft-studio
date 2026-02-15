@@ -1,6 +1,6 @@
 {
   "name": "ledgercraft-studio",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LedgerCraft Studio - Offline Desktop Accounting Application",
   "main": "dist/electron/main.js",
   "scripts": {

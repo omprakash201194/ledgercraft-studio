@@ -80,6 +80,7 @@ const TemplatesPage: React.FC = () => {
     // Move Dialog
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [moveTargetCategoryId, setMoveTargetCategoryId] = useState<string | null>(null);
+    const [itemToMove, setItemToMove] = useState<TemplateRecord | null>(null);
 
     const loadTemplates = useCallback(async () => {
         try {
@@ -171,16 +172,17 @@ const TemplatesPage: React.FC = () => {
 
     const handleMoveStart = () => {
         if (!menuTarget) return;
+        setItemToMove(menuTarget);
         setMoveTargetCategoryId(null); // Default to root
         setMoveDialogOpen(true);
         handleMenuClose();
     };
 
     const submitMove = async () => {
-        if (!menuTarget) return;
+        if (!itemToMove) return;
 
         const result = await window.api.moveItem({
-            itemId: menuTarget.id,
+            itemId: itemToMove.id,
             targetCategoryId: moveTargetCategoryId,
             type: 'TEMPLATE',
         });
@@ -188,6 +190,7 @@ const TemplatesPage: React.FC = () => {
         if (result.success) {
             setMoveDialogOpen(false);
             loadTemplates();
+            setTreeRefreshTrigger(prev => prev + 1);
         } else {
             alert(result.error); // Simple alert for now
         }

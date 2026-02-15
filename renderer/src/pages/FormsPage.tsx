@@ -70,6 +70,7 @@ const FormsPage: React.FC = () => {
 
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [moveTargetCategoryId, setMoveTargetCategoryId] = useState<string | null>(null);
+    const [itemToMove, setItemToMove] = useState<FormRecord | null>(null);
 
     // ─── Effects ─────────────────────────────────────────
     const loadForms = useCallback(async () => {
@@ -140,21 +141,23 @@ const FormsPage: React.FC = () => {
 
     const handleMoveStart = () => {
         if (!menuTarget) return;
+        setItemToMove(menuTarget);
         setMoveTargetCategoryId(null);
         setMoveDialogOpen(true);
         handleMenuClose();
     };
 
     const submitMove = async () => {
-        if (!menuTarget) return;
+        if (!itemToMove) return;
         const result = await window.api.moveItem({
-            itemId: menuTarget.id,
+            itemId: itemToMove.id,
             targetCategoryId: moveTargetCategoryId,
             type: 'FORM',
         });
         if (result.success) {
             setMoveDialogOpen(false);
             loadForms();
+            setTreeRefreshTrigger(prev => prev + 1);
         } else {
             alert(result.error);
         }
