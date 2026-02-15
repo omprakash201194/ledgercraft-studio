@@ -311,6 +311,47 @@ class Database {
     const stmt = db.prepare('SELECT * FROM form_fields WHERE form_id = ? ORDER BY rowid');
     return stmt.all(formId) as FormField[];
   }
+
+  // ─── Repository: Reports ──────────────────────────────
+
+  createReport(report: Omit<Report, 'id' | 'generated_at'>): Report {
+    const db = this.getConnection();
+    const id = uuidv4();
+    const generated_at = new Date().toISOString();
+
+    const stmt = db.prepare(`
+      INSERT INTO reports (id, form_id, generated_by, file_path, generated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(id, report.form_id, report.generated_by, report.file_path, generated_at);
+
+    return { id, ...report, generated_at };
+  }
+
+  getReportsWithDetails(): (Report & { form_name: string; generated_by_username: string })[] {
+    const db = this.getConnection();
+    const stmt = db.prepare(`
+      SELECT r.*, f.name as form_name, u.username as generated_by_username
+      FROM reports r
+      LEFT JOIN forms f ON f.id = r.form_id
+      LEFT JOIN users u ON u.id = r.generated_by
+      ORDER BY r.generated_at DESC
+    `);
+    return stmt.all() as (Report & { form_name: string; generated_by_username: string })[];
+  }
+
+  getReportsByUser(userId: string): (Report & { form_name: string; generated_by_username: string })[] {
+    const db = this.getConnection();
+    const stmt = db.prepare(`
+      SELECT r.*, f.name as form_name, u.username as generated_by_username
+      FROM reports r
+      LEFT JOIN forms f ON f.id = r.form_id
+      LEFT JOIN users u ON u.id = r.generated_by
+      WHERE r.generated_by = ?
+      ORDER BY r.generated_at DESC
+    `);
+    return stmt.all(userId) as (Report & { form_name: string; generated_by_username: string })[];
+  }
 }
 
 // Export singleton instance

@@ -1,10 +1,11 @@
-import { ipcMain, app, dialog } from 'electron';
+import { ipcMain, app, dialog, shell } from 'electron';
 import fs from 'fs';
 import { login, logout, getCurrentUser, createUser } from '../auth';
 import { database } from '../database';
 import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
 import { createForm, getForms, getFormById, getFormFields, CreateFormInput } from '../formService';
+import { generateReport, getReports, GenerateReportInput } from '../reportService';
 
 /**
  * Register all IPC handlers.
@@ -92,4 +93,19 @@ export function registerIpcHandlers(): void {
     ipcMain.handle('form:get-fields', (_event, formId: string) => {
         return getFormFields(formId);
     });
+
+    // ─── Reports ─────────────────────────────────────────
+    ipcMain.handle('report:generate', (_event, input: GenerateReportInput) => {
+        return generateReport(input);
+    });
+
+    ipcMain.handle('report:get-all', () => {
+        return getReports();
+    });
+
+    // ─── Shell ───────────────────────────────────────────
+    ipcMain.handle('shell:open-file', (_event, filePath: string) => {
+        return shell.openPath(filePath);
+    });
 }
+

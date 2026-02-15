@@ -22,4 +22,11 @@ contextBridge.exposeInMainWorld('api', {
     getForms: () => ipcRenderer.invoke('form:get-all'),
     getFormById: (formId: string) => ipcRenderer.invoke('form:get-by-id', formId),
     getFormFields: (formId: string) => ipcRenderer.invoke('form:get-fields', formId),
+
+    // Reports
+    generateReport: (input: unknown) => ipcRenderer.invoke('report:generate', input),
+    getReports: () => ipcRenderer.invoke('report:get-all'),
+
+    // Shell
+    openFile: (filePath: string) => ipcRenderer.invoke('shell:open-file', filePath),
 });

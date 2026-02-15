@@ -89,6 +89,31 @@ interface FormFieldRecord {
     options_json: string | null;
 }
 
+interface GenerateReportInput {
+    form_id: string;
+    values: Record<string, string | number | boolean>;
+}
+
+interface GenerateReportResult {
+    success: boolean;
+    report?: {
+        id: string;
+        file_path: string;
+        generated_at: string;
+    };
+    error?: string;
+}
+
+interface ReportRecord {
+    id: string;
+    form_id: string;
+    generated_by: string;
+    file_path: string;
+    generated_at: string;
+    form_name: string;
+    generated_by_username: string;
+}
+
 declare global {
     interface Window {
         api: {
@@ -113,6 +138,13 @@ declare global {
             getForms: () => Promise<FormRecord[]>;
             getFormById: (formId: string) => Promise<FormRecord | null>;
             getFormFields: (formId: string) => Promise<FormFieldRecord[]>;
+
+            // Reports
+            generateReport: (input: GenerateReportInput) => Promise<GenerateReportResult>;
+            getReports: () => Promise<ReportRecord[]>;
+
+            // Shell
+            openFile: (filePath: string) => Promise<string>;
         };
     }
 }
