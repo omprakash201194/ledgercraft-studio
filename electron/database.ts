@@ -12,10 +12,19 @@ export interface User {
   created_at: string;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  type: 'TEMPLATE' | 'FORM';
+  created_at: string;
+}
+
 export interface Template {
   id: string;
   name: string;
   file_path: string;
+  category_id?: string | null;
   created_at: string;
 }
 
@@ -29,6 +38,7 @@ export interface Form {
   id: string;
   name: string;
   template_id: string;
+  category_id?: string | null;
   created_at: string;
 }
 
@@ -56,6 +66,8 @@ export interface Report {
 class Database {
   private db: BetterSqlite3.Database | null = null;
   private dbPath: string = '';
+  private isCorrupted: boolean = false;
+  private corruptionError: string | null = null;
 
   /**
    * Initialize the database connection and create schema.
@@ -63,24 +75,43 @@ class Database {
    */
   initialize(appDataPath: string): void {
     this.dbPath = path.join(appDataPath, 'database.sqlite');
-    this.db = new BetterSqlite3(this.dbPath);
 
-    // Enable WAL mode for better concurrent read performance
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
+    try {
+      this.db = new BetterSqlite3(this.dbPath);
 
-    this.createSchema();
-    console.log(`[Database] Initialized at: ${this.dbPath}`);
+      // Enable WAL mode for better concurrent read performance
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('foreign_keys = ON');
+
+      this.createSchema();
+      console.log(`[Database] Initialized at: ${this.dbPath}`);
+    } catch (err) {
+      console.error('[Database] CORRUPTION DETECTED:', err);
+      this.isCorrupted = true;
+      this.corruptionError = String(err);
+      // Allow app to continue so we can show error screen
+    }
   }
 
   /**
    * Returns the raw better-sqlite3 connection.
    */
   getConnection(): BetterSqlite3.Database {
+    if (this.isCorrupted) {
+      throw new Error(`Database is corrupted: ${this.corruptionError}`);
+    }
     if (!this.db) {
       throw new Error('Database not initialized. Call initialize() first.');
     }
     return this.db;
+  }
+
+  getDbStatus() {
+    return {
+      isCorrupted: this.isCorrupted,
+      error: this.corruptionError,
+      path: this.dbPath
+    };
   }
 
   /**
@@ -108,11 +139,21 @@ class Database {
         created_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        parent_id TEXT,
+        type TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (parent_id) REFERENCES categories(id)
+      );
+
       CREATE TABLE IF NOT EXISTS templates (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         file_path TEXT NOT NULL,
         created_at TEXT NOT NULL
+        -- category_id added via migration below
       );
 
       CREATE TABLE IF NOT EXISTS template_placeholders (
@@ -127,6 +168,7 @@ class Database {
         name TEXT NOT NULL,
         template_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
+        -- category_id added via migration below
         FOREIGN KEY (template_id) REFERENCES templates(id)
       );
 
@@ -152,6 +194,21 @@ class Database {
         FOREIGN KEY (generated_by) REFERENCES users(id)
       );
     `);
+
+    // ─── Migrations ──────────────────────────────────────
+    this.safeAddColumn('templates', 'category_id', 'TEXT');
+    this.safeAddColumn('forms', 'category_id', 'TEXT');
+  }
+
+  private safeAddColumn(tableName: string, columnName: string, columnType: string): void {
+    const db = this.getConnection();
+    const tableInfo = db.pragma(`table_info(${tableName})`) as { name: string }[];
+    const columnExists = tableInfo.some((col) => col.name === columnName);
+
+    if (!columnExists) {
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`);
+      console.log(`[Database] Added column ${columnName} to ${tableName}`);
+    }
   }
 
   // ─── Repository: Users ───────────────────────────────
@@ -251,8 +308,8 @@ class Database {
     const created_at = new Date().toISOString();
 
     const insertForm = db.prepare(`
-      INSERT INTO forms (id, name, template_id, created_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO forms (id, name, template_id, category_id, created_at)
+      VALUES (?, ?, ?, ?, ?)
     `);
 
     const insertField = db.prepare(`
@@ -261,7 +318,7 @@ class Database {
     `);
 
     const transaction = db.transaction(() => {
-      insertForm.run(formId, form.name, form.template_id, created_at);
+      insertForm.run(formId, form.name, form.template_id, form.category_id || null, created_at);
 
       for (const field of fields) {
         const fieldId = uuidv4();
@@ -280,6 +337,65 @@ class Database {
 
     transaction();
     return { id: formId, name: form.name, template_id: form.template_id, created_at };
+  }
+
+  updateForm(id: string, updates: Partial<Omit<Form, 'id' | 'created_at'>>, fields?: Omit<FormField, 'id' | 'form_id'>[]): Form {
+    const db = this.getConnection();
+
+    // Get existing form
+    const existing = db.prepare('SELECT * FROM forms WHERE id = ?').get(id) as Form;
+    if (!existing) throw new Error(`Form with ID ${id} not found`);
+
+    const transaction = db.transaction(() => {
+      // 1. Update Form details
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+
+      if (updates.name !== undefined) {
+        updateFields.push('name = ?');
+        updateValues.push(updates.name);
+      }
+      if (updates.category_id !== undefined) {
+        updateFields.push('category_id = ?');
+        updateValues.push(updates.category_id);
+      }
+      if (updates.template_id !== undefined) {
+        updateFields.push('template_id = ?');
+        updateValues.push(updates.template_id);
+      }
+
+      if (updateFields.length > 0) {
+        updateValues.push(id);
+        db.prepare(`UPDATE forms SET ${updateFields.join(', ')} WHERE id = ?`).run(...updateValues);
+      }
+
+      // 2. Update Fields (Delete all and re-insert if fields provided)
+      if (fields) {
+        db.prepare('DELETE FROM form_fields WHERE form_id = ?').run(id);
+
+        const insertField = db.prepare(`
+          INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const field of fields) {
+          insertField.run(
+            uuidv4(),
+            id,
+            field.label,
+            field.field_key,
+            field.data_type,
+            field.required,
+            field.placeholder_mapping || null,
+            field.options_json || null
+          );
+        }
+      }
+    });
+
+    transaction();
+
+    return (this.getFormById(id) as any)!; // simpler cast for now
   }
 
   getFormsWithDetails(): (Form & { template_name: string; field_count: number })[] {
@@ -351,6 +467,116 @@ class Database {
       ORDER BY r.generated_at DESC
     `);
     return stmt.all(userId) as (Report & { form_name: string; generated_by_username: string })[];
+  }
+
+  // ─── Repository: Categories ───────────────────────────
+
+  createCategory(category: Omit<Category, 'id' | 'created_at'>): Category {
+    const db = this.getConnection();
+    const id = uuidv4();
+    const created_at = new Date().toISOString();
+
+    const stmt = db.prepare(`
+      INSERT INTO categories (id, name, parent_id, type, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(id, category.name, category.parent_id, category.type, created_at);
+
+    return { id, ...category, created_at };
+  }
+
+  getAllCategoriesByType(type: 'TEMPLATE' | 'FORM'): Category[] {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT * FROM categories WHERE type = ? ORDER BY name ASC');
+    return stmt.all(type) as Category[];
+  }
+
+  getCategoryById(id: string): Category | undefined {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
+    return stmt.get(id) as Category | undefined;
+  }
+
+  updateCategoryName(id: string, name: string): void {
+    const db = this.getConnection();
+    const stmt = db.prepare('UPDATE categories SET name = ? WHERE id = ?');
+    stmt.run(name, id);
+  }
+
+  deleteCategory(id: string): void {
+    const db = this.getConnection();
+    const stmt = db.prepare('DELETE FROM categories WHERE id = ?');
+    stmt.run(id);
+  }
+
+  // Check for dependencies before delete
+  getCategoryChildrenCount(id: string): number {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM categories WHERE parent_id = ?');
+    const result = stmt.get(id) as { count: number };
+    return result.count;
+  }
+
+  getCategoryItemCount(id: string, type: 'TEMPLATE' | 'FORM'): number {
+    const db = this.getConnection();
+    const table = type === 'TEMPLATE' ? 'templates' : 'forms';
+    const stmt = db.prepare(`SELECT COUNT(*) as count FROM ${table} WHERE category_id = ?`);
+    const result = stmt.get(id) as { count: number };
+    return result.count;
+  }
+
+  // ─── Repository: Item Management (Move/Delete) ───────
+
+  updateTemplateCategory(templateId: string, categoryId: string | null): void {
+    const db = this.getConnection();
+    const stmt = db.prepare('UPDATE templates SET category_id = ? WHERE id = ?');
+    stmt.run(categoryId, templateId);
+  }
+
+  updateFormCategory(formId: string, categoryId: string | null): void {
+    const db = this.getConnection();
+    const stmt = db.prepare('UPDATE forms SET category_id = ? WHERE id = ?');
+    stmt.run(categoryId, formId);
+  }
+
+  // Check if template is used by any form
+  isTemplateUsed(templateId: string): boolean {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM forms WHERE template_id = ?');
+    const result = stmt.get(templateId) as { count: number };
+    return result.count > 0;
+  }
+
+  deleteTemplate(id: string): void {
+    const db = this.getConnection();
+    // Also delete placeholders
+    const deletePlaceholders = db.prepare('DELETE FROM template_placeholders WHERE template_id = ?');
+    const deleteTemplate = db.prepare('DELETE FROM templates WHERE id = ?');
+
+    db.transaction(() => {
+      deletePlaceholders.run(id);
+      deleteTemplate.run(id);
+    })();
+  }
+
+  // Check if form has reports
+  formHasReports(formId: string): boolean {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM reports WHERE form_id = ?');
+    const result = stmt.get(formId) as { count: number };
+    return result.count > 0;
+  }
+
+  deleteForm(id: string): void {
+    const db = this.getConnection();
+    // Also delete fields
+    const deleteFields = db.prepare('DELETE FROM form_fields WHERE form_id = ?');
+    const deleteForm = db.prepare('DELETE FROM forms WHERE id = ?');
+
+    db.transaction(() => {
+      deleteFields.run(id);
+      deleteForm.run(id);
+    })();
   }
 }
 

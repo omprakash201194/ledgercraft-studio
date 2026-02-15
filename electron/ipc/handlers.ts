@@ -4,17 +4,102 @@ import { login, logout, getCurrentUser, createUser } from '../auth';
 import { database } from '../database';
 import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
-import { createForm, getForms, getFormById, getFormFields, CreateFormInput } from '../formService';
+import { createForm, getForms, getFormById, getFormFields, updateForm, CreateFormInput, UpdateFormInput } from '../formService';
 import { generateReport, getReports, GenerateReportInput } from '../reportService';
+import {
+    getCategoryTree,
+    createCategory,
+    renameCategory,
+    deleteCategory,
+    moveItem,
+    deleteTemplate,
+    deleteForm,
+    CreateCategoryInput,
+    MoveItemInput
+} from '../categoryService';
+import { exportBackup, restoreBackup } from '../backupService';
 
 /**
  * Register all IPC handlers.
  * Called once during app initialization.
  */
 export function registerIpcHandlers(): void {
+    // ... existing handlers ...
+
+    // ─── Categories & Lifecycle ──────────────────────────
+    ipcMain.handle('category:get-tree', (_event, type: 'TEMPLATE' | 'FORM') => {
+        return getCategoryTree(type);
+    });
+
+    ipcMain.handle('category:create', (_event, input: CreateCategoryInput) => {
+        return createCategory(input);
+    });
+
+    ipcMain.handle('category:rename', (_event, id: string, newName: string) => {
+        return renameCategory(id, newName);
+    });
+
+    ipcMain.handle('category:delete', (_event, id: string, type: 'TEMPLATE' | 'FORM') => {
+        return deleteCategory(id, type);
+    });
+
+    ipcMain.handle('item:move', (_event, input: MoveItemInput) => {
+        return moveItem(input);
+    });
+
+    ipcMain.handle('template:delete', (_event, id: string) => {
+        return deleteTemplate(id);
+    });
+
+    ipcMain.handle('form:delete', (_event, id: string) => {
+        return deleteForm(id);
+    });
+
+    // ─── Reports ─────────────────────────────────────────
+
     // ─── App ─────────────────────────────────────────────
     ipcMain.handle('get-app-data-path', () => {
         return app.getPath('userData');
+    });
+
+    ipcMain.handle('app:get-version', () => {
+        return app.getVersion();
+    });
+
+    ipcMain.handle('app:get-db-status', () => {
+        return database.getDbStatus();
+    });
+
+    ipcMain.handle('backup:export', async () => {
+        const { canceled, filePath } = await dialog.showSaveDialog({
+            title: 'Export Backup',
+            defaultPath: `ledgercraft-backup-${new Date().toISOString().split('T')[0]}.zip`,
+            filters: [{ name: 'Zip Files', extensions: ['zip'] }]
+        });
+        if (canceled || !filePath) return { success: false, cancelled: true };
+        return exportBackup(filePath);
+    });
+
+    ipcMain.handle('backup:restore', async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Select Backup File',
+            filters: [{ name: 'Zip Files', extensions: ['zip'] }],
+            properties: ['openFile']
+        });
+        if (canceled || filePaths.length === 0) return { success: false, cancelled: true };
+
+        const choice = dialog.showMessageBoxSync({
+            type: 'warning',
+            title: 'Confirm Restore',
+            message: 'Restoring a backup will replace all current data and restart the application. Are you sure?',
+            buttons: ['Cancel', 'Restore'],
+            defaultId: 0,
+            cancelId: 0
+        });
+
+        if (choice === 0) return { success: false, cancelled: true };
+
+        return restoreBackup(filePaths[0]);
     });
 
     // ─── Auth ────────────────────────────────────────────
@@ -78,8 +163,12 @@ export function registerIpcHandlers(): void {
     });
 
     // ─── Forms ───────────────────────────────────────────
-    ipcMain.handle('form:create', (_event, formData: CreateFormInput) => {
-        return createForm(formData);
+    ipcMain.handle('form:create', (_event, input: CreateFormInput) => {
+        return createForm(input);
+    });
+
+    ipcMain.handle('form:update', (_event, input: UpdateFormInput) => {
+        return updateForm(input);
     });
 
     ipcMain.handle('form:get-all', () => {

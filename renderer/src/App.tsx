@@ -11,6 +11,7 @@ import FormsPage from './pages/FormsPage';
 import GenerateReportPage from './pages/GenerateReportPage';
 import ReportsPage from './pages/ReportsPage';
 import PlaceholderPage from './pages/PlaceholderPage';
+import SettingsPage from './pages/SettingsPage';
 import { Box, CircularProgress } from '@mui/material';
 
 /**
@@ -107,7 +108,7 @@ const App: React.FC = () => {
                                     </AdminRoute>
                                 }
                             />
-                            <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+                            <Route path="settings" element={<SettingsPage />} />
                         </Route>
 
                         {/* Catch-all */}

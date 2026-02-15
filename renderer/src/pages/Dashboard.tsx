@@ -3,206 +3,208 @@ import {
     Box,
     Typography,
     Paper,
+    Grid,
+    Card,
+    CardContent,
+    CardActionArea,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
     Chip,
+    Fade,
     useTheme,
     alpha,
-    Fade,
+    Button
 } from '@mui/material';
 import {
-    CheckCircleOutline as CheckIcon,
+    Description as TemplatesIcon,
+    DynamicForm as FormsIcon,
+    Summarize as GenerateReportIcon,
+    DescriptionOutlined as ReportIcon,
     RocketLaunch as RocketIcon,
-    Info as InfoIcon,
-    FolderOpen as FolderIcon,
+    ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
     const theme = useTheme();
-    const [pingResult, setPingResult] = useState<string>('...');
-    const [appDataPath, setAppDataPath] = useState<string>('...');
+    const navigate = useNavigate();
+    const [recentReports, setRecentReports] = useState<any[]>([]);
 
     useEffect(() => {
-        try {
-            const result = window.api?.ping();
-            setPingResult(result || 'API not available');
-        } catch {
-            setPingResult('API not available (running in browser)');
-        }
-
-        (async () => {
-            try {
-                const path = await window.api?.getAppDataPath();
-                setAppDataPath(path || 'Not available');
-            } catch {
-                setAppDataPath('Not available (running in browser)');
-            }
-        })();
+        // Fetch reports
+        window.api.getReports().then(reports => {
+            // Sort by Date Desc
+            const sorted = reports
+                .sort((a, b) => new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime())
+                .slice(0, 5);
+            setRecentReports(sorted);
+        }).catch(() => { });
     }, []);
 
-    const cardSx = (gradientStart: string, gradientEnd: string, hoverColor: string) => ({
-        p: 3,
-        border: `1px solid ${theme.palette.divider}`,
-        background:
-            theme.palette.mode === 'dark'
-                ? `linear-gradient(135deg, ${alpha(gradientStart, 0.06)} 0%, ${alpha(gradientEnd, 0.04)} 100%)`
-                : `linear-gradient(135deg, ${alpha(gradientStart, 0.04)} 0%, ${alpha(gradientEnd, 0.02)} 100%)`,
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: `0 8px 24px ${alpha(hoverColor, 0.12)}`,
+    const actions = [
+        {
+            label: 'Manage Templates',
+            icon: <TemplatesIcon fontSize="large" />,
+            path: '/templates',
+            color: theme.palette.primary.main,
+            desc: 'Create and manage document templates'
         },
-    });
+        {
+            label: 'Manage Forms',
+            icon: <FormsIcon fontSize="large" />,
+            path: '/forms',
+            color: theme.palette.secondary.main,
+            desc: 'Configure data entry forms'
+        },
+        {
+            label: 'Generate Report',
+            icon: <GenerateReportIcon fontSize="large" />,
+            path: '/generate-report',
+            color: theme.palette.success.main,
+            desc: 'Generate documents from templates'
+        }
+    ];
 
     return (
         <Fade in timeout={500}>
-            <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-                {/* Hero Section */}
-                <Box sx={{ mb: 4, textAlign: 'center', pt: 2 }}>
+            <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2 }}>
+
+                {/* Welcome Hero */}
+                <Box sx={{ textAlign: 'center', mb: 8, mt: 4 }}>
                     <Box
                         sx={{
-                            width: 72,
-                            height: 72,
-                            borderRadius: 3,
-                            mx: 'auto',
-                            mb: 2.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'linear-gradient(135deg, #7C4DFF 0%, #448AFF 50%, #00E5FF 100%)',
-                            boxShadow: '0 8px 32px rgba(124,77,255,0.35)',
+                            display: 'inline-flex',
+                            p: 2,
+                            borderRadius: '50%',
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                            mb: 3
                         }}
                     >
-                        <RocketIcon sx={{ color: '#fff', fontSize: 36 }} />
+                        <RocketIcon sx={{ fontSize: 40, color: theme.palette.primary.main }} />
                     </Box>
-                    <Typography variant="h4" sx={{ mb: 0.5 }}>
+                    <Typography variant="h3" fontWeight="bold" gutterBottom>
                         LedgerCraft Studio
                     </Typography>
-                    <Chip
-                        label="v1.0.0-alpha"
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                            borderColor: alpha(theme.palette.primary.main, 0.4),
-                            color: theme.palette.primary.main,
-                            fontWeight: 600,
-                            fontSize: '0.75rem',
-                        }}
-                    />
+                    <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
+                        Offline Document Automation for CA Firms
+                    </Typography>
                 </Box>
 
-                {/* Status Cards */}
-                <Box
-                    sx={{
-                        display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                        gap: 2.5,
-                        mb: 2.5,
-                    }}
-                >
-                    {/* IPC Status Card */}
-                    <Paper elevation={0} sx={cardSx('#7C4DFF', '#448AFF', theme.palette.primary.main)}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                            <CheckIcon sx={{ color: '#4CAF50', fontSize: 20 }} />
-                            <Typography variant="overline" sx={{ fontWeight: 600, letterSpacing: 1 }}>
-                                IPC Bridge
-                            </Typography>
-                        </Box>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-                            Electron ↔ Renderer communication
-                        </Typography>
-                        <Box
-                            sx={{
-                                px: 2,
-                                py: 1,
-                                borderRadius: 2,
-                                backgroundColor: alpha(theme.palette.success.main, 0.1),
-                                border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
-                                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                                fontSize: '0.85rem',
-                            }}
-                        >
-                            <Typography
-                                component="span"
-                                sx={{ color: 'text.secondary', fontFamily: 'inherit', fontSize: 'inherit' }}
-                            >
-                                ping() →{' '}
-                            </Typography>
-                            <Typography
-                                component="span"
+                {/* Action Cards */}
+                <Grid container spacing={3} sx={{ mb: 8 }}>
+                    {actions.map((action) => (
+                        <Grid item xs={12} md={4} key={action.label}>
+                            <Card
+                                elevation={0}
                                 sx={{
-                                    color: theme.palette.success.main,
-                                    fontWeight: 600,
-                                    fontFamily: 'inherit',
-                                    fontSize: 'inherit',
+                                    height: '100%',
+                                    border: `1px solid ${theme.palette.divider}`,
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: theme.shadows[4],
+                                        borderColor: action.color
+                                    }
                                 }}
                             >
-                                "{pingResult}"
-                            </Typography>
-                        </Box>
-                    </Paper>
+                                <CardActionArea
+                                    onClick={() => navigate(action.path)}
+                                    sx={{ height: '100%', p: 2 }}
+                                >
+                                    <CardContent sx={{ textAlign: 'center' }}>
+                                        <Box sx={{ color: action.color, mb: 2 }}>
+                                            {action.icon}
+                                        </Box>
+                                        <Typography variant="h6" gutterBottom>
+                                            {action.label}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {action.desc}
+                                        </Typography>
+                                    </CardContent>
+                                </CardActionArea>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
 
-                    {/* App Info Card */}
-                    <Paper elevation={0} sx={cardSx('#00E5FF', '#7C4DFF', theme.palette.secondary.main)}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                            <InfoIcon sx={{ color: theme.palette.secondary.main, fontSize: 20 }} />
-                            <Typography variant="overline" sx={{ fontWeight: 600, letterSpacing: 1 }}>
-                                Application Info
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-                            {[
-                                { label: 'Stack', value: 'Electron + React + TypeScript' },
-                                { label: 'UI Framework', value: 'Material UI v6' },
-                                { label: 'Database', value: 'SQLite (better-sqlite3)' },
-                                { label: 'Milestone', value: '2 — Database' },
-                            ].map((item) => (
-                                <Box key={item.label} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        {item.label}
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                        {item.value}
-                                    </Typography>
-                                </Box>
-                            ))}
-                        </Box>
+                {/* Recent Reports */}
+                <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                        <Typography variant="h5" fontWeight="600">
+                            Recent Reports
+                        </Typography>
+                        <Button
+                            endIcon={<ArrowForwardIcon />}
+                            onClick={() => navigate('/reports')}
+                        >
+                            View All
+                        </Button>
+                    </Box>
+
+                    <Paper elevation={0} sx={{ border: `1px solid ${theme.palette.divider}`, overflow: 'hidden' }}>
+                        <TableContainer>
+                            <Table>
+                                <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.03) }}>
+                                    <TableRow>
+                                        <TableCell>Report Name</TableCell>
+                                        <TableCell>Form</TableCell>
+                                        <TableCell>Generated By</TableCell>
+                                        <TableCell align="right">Date</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {recentReports.length > 0 ? (
+                                        recentReports.map((report) => (
+                                            <TableRow
+                                                key={report.id}
+                                                hover
+                                                sx={{ cursor: 'pointer' }}
+                                                onClick={() => navigate('/reports')}
+                                            >
+                                                <TableCell>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <ReportIcon color="action" fontSize="small" />
+                                                        <Typography variant="body2" fontWeight="500">
+                                                            {report.file_path.split(/[\\/]/).pop()}
+                                                        </Typography>
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={report.form_name}
+                                                        size="small"
+                                                        sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), color: theme.palette.info.main }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {report.generated_by_username}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {new Date(report.generated_at).toLocaleDateString()}
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                                                <Typography color="text.secondary">No reports generated yet</Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
                     </Paper>
                 </Box>
-
-                {/* App Data Path Card — Full Width */}
-                <Paper elevation={0} sx={cardSx('#FF9800', '#7C4DFF', '#FF9800')}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                        <FolderIcon sx={{ color: '#FF9800', fontSize: 20 }} />
-                        <Typography variant="overline" sx={{ fontWeight: 600, letterSpacing: 1 }}>
-                            App Data Location
-                        </Typography>
-                    </Box>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-                        Local storage directory (database, templates, reports, logs)
-                    </Typography>
-                    <Box
-                        sx={{
-                            px: 2,
-                            py: 1,
-                            borderRadius: 2,
-                            backgroundColor: alpha('#FF9800', 0.08),
-                            border: `1px solid ${alpha('#FF9800', 0.2)}`,
-                            fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                            fontSize: '0.8rem',
-                            wordBreak: 'break-all',
-                        }}
-                    >
-                        <Typography
-                            sx={{
-                                fontFamily: 'inherit',
-                                fontSize: 'inherit',
-                                color: 'text.primary',
-                                fontWeight: 500,
-                            }}
-                        >
-                            {appDataPath}
-                        </Typography>
-                    </Box>
-                </Paper>
             </Box>
         </Fade>
     );

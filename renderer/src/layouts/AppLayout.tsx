@@ -16,6 +16,12 @@ import {
     alpha,
     Chip,
     Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
+    Button,
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
@@ -29,6 +35,7 @@ import {
     LightMode as LightModeIcon,
     AutoStories as LogoIcon,
     Logout as LogoutIcon,
+    Info as InfoIcon
 } from '@mui/icons-material';
 import { useThemeContext } from '../components/ThemeContext';
 import { useAuth } from '../components/AuthContext';
@@ -49,7 +56,7 @@ const allNavItems: NavItem[] = [
     { label: 'Generate Report', path: '/generate-report', icon: <GenerateReportIcon />, roles: ['ADMIN', 'USER'] },
     { label: 'Reports', path: '/reports', icon: <ReportsIcon />, roles: ['ADMIN', 'USER'] },
     { label: 'Users', path: '/users', icon: <UsersIcon />, roles: ['ADMIN'] },
-    { label: 'Settings', path: '/settings', icon: <SettingsIcon />, roles: ['USER'] },
+    { label: 'Settings', path: '/settings', icon: <SettingsIcon />, roles: ['ADMIN', 'USER'] },
 ];
 
 const AppLayout: React.FC = () => {
@@ -58,6 +65,20 @@ const AppLayout: React.FC = () => {
     const theme = useTheme();
     const { mode, toggleTheme } = useThemeContext();
     const { user, logout } = useAuth();
+
+    // DB Integrity
+    const [dbStatus, setDbStatus] = React.useState<{ isCorrupted: boolean; error: string | null } | null>(null);
+
+    React.useEffect(() => {
+        window.api.getDbStatus().then(setDbStatus);
+    }, []);
+
+    const handleRestoreDb = async () => {
+        const result = await window.api.restoreBackup();
+        if (!result.success && result.error) {
+            alert(`Restore failed: ${result.error}`);
+        }
+    };
 
     // Filter nav items by current user's role
     const navItems = allNavItems.filter((item) => user && item.roles.includes(user.role));
@@ -265,6 +286,25 @@ const AppLayout: React.FC = () => {
                     <Outlet />
                 </Box>
             </Box>
+            {/* Integrity Modal */}
+            <Dialog open={!!dbStatus?.isCorrupted} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ color: 'error.main', fontWeight: 'bold' }}>Database Corrupted</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        The application database appears to be corrupted and cannot be opened.
+                        <br /><br />
+                        <strong>Error:</strong> {dbStatus?.error}
+                        <br /><br />
+                        You must restore from a backup to continue.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleRestoreDb} variant="contained" color="primary">
+                        Restore from Backup
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
         </Box>
     );
 };

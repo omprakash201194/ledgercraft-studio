@@ -6,6 +6,7 @@ import { getCurrentUser } from './auth';
 export interface CreateFormInput {
     name: string;
     template_id: string;
+    category_id?: string | null;
     fields: {
         label: string;
         field_key: string;
@@ -69,7 +70,11 @@ export function createForm(input: CreateFormInput): CreateFormResult {
         }));
 
         const form = database.createForm(
-            { name: input.name.trim(), template_id: input.template_id },
+            {
+                name: input.name.trim(),
+                template_id: input.template_id,
+                category_id: input.category_id
+            },
             dbFields
         );
 
@@ -101,4 +106,61 @@ export function getFormById(formId: string) {
  */
 export function getFormFields(formId: string) {
     return database.getFormFields(formId);
+}
+
+export interface UpdateFormInput {
+    id: string;
+    name?: string;
+    category_id?: string | null;
+    template_id?: string;
+    fields?: {
+        label: string;
+        field_key: string;
+        data_type: string;
+        required: boolean;
+        placeholder_mapping: string | null;
+        options_json: string | null;
+    }[];
+}
+
+export function updateForm(input: UpdateFormInput) {
+    // Auth check
+    const currentUser = getCurrentUser();
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+        return { success: false, error: 'Only administrators can update forms' };
+    }
+
+    try {
+        let dbFields = undefined;
+        if (input.fields) {
+            // Validate unique mappings if fields are being updated
+            const mappings = input.fields
+                .map((f) => f.placeholder_mapping)
+                .filter((m): m is string => m !== null && m !== '');
+            const uniqueMappings = new Set(mappings);
+            if (mappings.length !== uniqueMappings.size) {
+                return { success: false, error: 'Placeholder mappings must be unique across fields' };
+            }
+
+            dbFields = input.fields.map((f) => ({
+                label: f.label,
+                field_key: f.field_key,
+                data_type: f.data_type,
+                required: f.required ? 1 : 0,
+                placeholder_mapping: f.placeholder_mapping || null,
+                options_json: f.options_json || null,
+            }));
+        }
+
+        const form = database.updateForm(
+            input.id,
+            { name: input.name, category_id: input.category_id, template_id: input.template_id },
+            dbFields
+        );
+
+        return { success: true, form };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error updating form';
+        return { success: false, error: message };
+    }
 }
