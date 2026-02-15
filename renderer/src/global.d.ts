@@ -168,8 +168,28 @@ declare global {
         error?: string;
     }
 
+    interface AuditLog {
+        id: string;
+        user_id: string;
+        username?: string;
+        action_type: string;
+        entity_type: string;
+        entity_id?: string;
+        metadata_json?: string; // stringified JSON
+        created_at: string;
+    }
+
+    interface AnalyticsStats {
+        totalReports: number;
+        reportsThisMonth: number;
+        reportsByUser: { name: string; value: number }[];
+        topForms: { name: string; value: number }[];
+        monthlyTrend: { name: string; value: number }[];
+    }
+
     interface Window {
         api: {
+            // ... existing ...
             // App
             ping: () => string;
             getAppDataPath: () => Promise<string>;
@@ -216,6 +236,9 @@ declare global {
 
             // Shell
             openFile: (filePath: string) => Promise<string>;
+            // Audit
+            getAuditLogs(params: { page: number; pageSize: number; filters?: any }): Promise<{ logs: AuditLog[]; total: number }>;
+            getAnalytics(): Promise<AnalyticsStats>;
         };
     }
 }

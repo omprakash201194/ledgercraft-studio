@@ -6,6 +6,7 @@ import Docxtemplater from 'docxtemplater';
 import { app } from 'electron';
 import { database } from './database';
 import { getCurrentUser } from './auth';
+import { logAction } from './auditService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -64,6 +65,16 @@ export function uploadTemplate(fileBuffer: Buffer, originalName: string): Upload
             database.createPlaceholder({
                 template_id: template.id,
                 placeholder_key: key,
+            });
+        }
+
+        if (currentUser) {
+            logAction({
+                userId: currentUser.id,
+                actionType: 'TEMPLATE_UPLOAD',
+                entityType: 'TEMPLATE',
+                entityId: template.id,
+                metadata: { name: originalName }
             });
         }
 

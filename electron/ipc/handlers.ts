@@ -6,6 +6,7 @@ import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
 import { createForm, getForms, getFormById, getFormFields, updateForm, generateFieldsFromTemplate, CreateFormInput, UpdateFormInput } from '../formService';
 import { generateReport, getReports, GenerateReportInput } from '../reportService';
+import { getAuditLogs, getAnalytics } from '../auditService';
 import {
     getCategoryTree,
     createCategory,
@@ -224,6 +225,15 @@ export function registerIpcHandlers(): void {
     // ─── Shell ───────────────────────────────────────────
     ipcMain.handle('shell:open-file', (_event, filePath: string) => {
         return shell.openPath(filePath);
+    });
+    // ─── Audit & Analytics ───────────────────────────────
+    ipcMain.handle('audit:get-logs', (_event, params: { page: number, pageSize: number, filters: any }) => {
+        const { page, pageSize, filters } = params || {};
+        return getAuditLogs(page, pageSize, filters);
+    });
+
+    ipcMain.handle('audit:get-analytics', () => {
+        return getAnalytics();
     });
 }
 

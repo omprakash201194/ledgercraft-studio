@@ -47,4 +47,7 @@ contextBridge.exposeInMainWorld('api', {
 
     // Shell
     openFile: (filePath: string) => ipcRenderer.invoke('shell:open-file', filePath),
+    // Audit & Analytics
+    getAuditLogs: (params: any) => ipcRenderer.invoke('audit:get-logs', params),
+    getAnalytics: () => ipcRenderer.invoke('audit:get-analytics'),
 });

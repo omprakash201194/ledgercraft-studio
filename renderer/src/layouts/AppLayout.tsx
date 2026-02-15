@@ -35,7 +35,9 @@ import {
     LightMode as LightModeIcon,
     AutoStories as LogoIcon,
     Logout as LogoutIcon,
-    Info as InfoIcon
+    Info as InfoIcon,
+    History as AuditIcon,
+    Analytics as AnalyticsIcon
 } from '@mui/icons-material';
 import { useThemeContext } from '../components/ThemeContext';
 import { useAuth } from '../components/AuthContext';
@@ -55,6 +57,8 @@ const allNavItems: NavItem[] = [
     { label: 'Forms', path: '/forms', icon: <FormsIcon />, roles: ['ADMIN'] },
     { label: 'Generate Report', path: '/generate-report', icon: <GenerateReportIcon />, roles: ['ADMIN', 'USER'] },
     { label: 'Reports', path: '/reports', icon: <ReportsIcon />, roles: ['ADMIN', 'USER'] },
+    { label: 'Analytics', path: '/analytics', icon: <AnalyticsIcon />, roles: ['ADMIN'] },
+    { label: 'Audit Logs', path: '/audit', icon: <AuditIcon />, roles: ['ADMIN'] },
     { label: 'Users', path: '/users', icon: <UsersIcon />, roles: ['ADMIN'] },
     { label: 'Settings', path: '/settings', icon: <SettingsIcon />, roles: ['ADMIN', 'USER'] },
 ];

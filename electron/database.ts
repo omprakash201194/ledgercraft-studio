@@ -193,6 +193,16 @@ class Database {
         FOREIGN KEY (form_id) REFERENCES forms(id),
         FOREIGN KEY (generated_by) REFERENCES users(id)
       );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT,
+        metadata_json TEXT,
+        created_at TEXT NOT NULL
+      );
     `);
 
     // ─── Migrations ──────────────────────────────────────

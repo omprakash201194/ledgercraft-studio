@@ -1,5 +1,6 @@
 import { database, FormField } from './database';
 import { getCurrentUser } from './auth';
+import { logAction } from './auditService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -79,6 +80,17 @@ export function createForm(input: CreateFormInput): CreateFormResult {
         );
 
         console.log(`[Form] Created form "${form.name}" with ${input.fields.length} field(s)`);
+
+        if (currentUser) {
+            logAction({
+                userId: currentUser.id,
+                actionType: 'FORM_CREATE',
+                entityType: 'FORM',
+                entityId: form.id,
+                metadata: { name: form.name, templateId: input.template_id }
+            });
+        }
+
         return { success: true, form };
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error creating form';

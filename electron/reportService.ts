@@ -5,6 +5,7 @@ import Docxtemplater from 'docxtemplater';
 import { app } from 'electron';
 import { database } from './database';
 import { getCurrentUser } from './auth';
+import { logAction } from './auditService';
 
 // ─── Types ───────────────────────────────────────────────
 

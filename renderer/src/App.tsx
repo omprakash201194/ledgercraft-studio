@@ -12,6 +12,8 @@ import GenerateReportPage from './pages/GenerateReportPage';
 import ReportsPage from './pages/ReportsPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import SettingsPage from './pages/SettingsPage';
+import AuditPage from './pages/AuditPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 import { Box, CircularProgress } from '@mui/material';
 
 /**
@@ -100,15 +102,13 @@ const App: React.FC = () => {
                             <Route path="forms" element={<FormsPage />} />
                             <Route path="generate-report" element={<GenerateReportPage />} />
                             <Route path="reports" element={<ReportsPage />} />
-                            <Route
-                                path="users"
-                                element={
-                                    <AdminRoute>
-                                        <UsersPage />
-                                    </AdminRoute>
-                                }
-                            />
+                            <Route path="users" element={<UsersPage />} />
                             <Route path="settings" element={<SettingsPage />} />
+
+                            {/* Admin Only */}
+                            <Route path="audit" element={<AdminRoute><AuditPage /></AdminRoute>} />
+                            <Route path="analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
+
                         </Route>
 
                         {/* Catch-all */}

@@ -1,5 +1,7 @@
 import { database, Category } from './database';
 import fs from 'fs';
+import { getCurrentUser } from './auth';
+import { logAction } from './auditService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -136,6 +138,18 @@ export function moveItem(input: MoveItemInput): MoveItemResult {
         }
 
         console.log(`[CategoryService] Move successful. New Category: ${input.targetCategoryId}`);
+
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            logAction({
+                userId: currentUser.id,
+                actionType: 'ITEM_MOVE',
+                entityType: input.type,
+                entityId: input.itemId,
+                metadata: { targetCategoryId: input.targetCategoryId }
+            });
+        }
+
         return { success: true, item: updatedItem };
     } catch (e) {
         console.error(`[CategoryService] Move failed:`, e);
@@ -157,6 +171,17 @@ export function deleteTemplate(id: string): ServiceResult {
         }
 
         database.deleteTemplate(id);
+
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            logAction({
+                userId: currentUser.id,
+                actionType: 'TEMPLATE_DELETE',
+                entityType: 'TEMPLATE',
+                entityId: id
+            });
+        }
+
         return { success: true };
     } catch (e) {
         return { success: false, error: String(e) };
@@ -170,7 +195,18 @@ export function deleteForm(id: string): ServiceResult {
             return { success: false, error: 'Cannot delete form: It has existing reports. Delete reports first.' };
         }
 
-        database.deleteForm(id);
+        database.deleteForm(id); // Fixed typo in tool call if existed, but here I just match content
+
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            logAction({
+                userId: currentUser.id,
+                actionType: 'FORM_DELETE',
+                entityType: 'FORM',
+                entityId: id
+            });
+        }
+
         return { success: true };
     } catch (e) {
         return { success: false, error: String(e) };
