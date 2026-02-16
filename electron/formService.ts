@@ -16,6 +16,7 @@ export interface CreateFormInput {
         required: boolean;
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }[];
 }
 
@@ -69,6 +70,7 @@ export function createForm(input: CreateFormInput): CreateFormResult {
             required: f.required ? 1 : 0,
             placeholder_mapping: f.placeholder_mapping || null,
             options_json: f.options_json || null,
+            format_options: f.format_options || null,
         }));
 
         const form = database.createForm(
@@ -247,6 +249,7 @@ export interface UpdateFormInput {
         required: boolean;
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }[];
 }
 
@@ -276,6 +279,7 @@ export function updateForm(input: UpdateFormInput) {
                 required: f.required ? 1 : 0,
                 placeholder_mapping: f.placeholder_mapping || null,
                 options_json: f.options_json || null,
+                format_options: f.format_options || null,
             }));
         }
 

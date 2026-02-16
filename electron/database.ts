@@ -375,8 +375,8 @@ class Database {
     `);
 
     const insertField = db.prepare(`
-      INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json, format_options)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const transaction = db.transaction(() => {
@@ -392,7 +392,8 @@ class Database {
           field.data_type,
           field.required,
           field.placeholder_mapping || null,
-          field.options_json || null
+          field.options_json || null,
+          field.format_options || null
         );
       }
     });
@@ -436,8 +437,8 @@ class Database {
         db.prepare('DELETE FROM form_fields WHERE form_id = ?').run(id);
 
         const insertField = db.prepare(`
-          INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json, format_options)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const field of fields) {
@@ -449,7 +450,8 @@ class Database {
             field.data_type,
             field.required,
             field.placeholder_mapping || null,
-            field.options_json || null
+            field.options_json || null,
+            field.format_options || null
           );
         }
       }
