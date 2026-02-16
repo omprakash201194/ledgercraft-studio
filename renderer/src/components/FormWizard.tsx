@@ -18,7 +18,11 @@ import {
     CircularProgress,
     Chip,
     useTheme,
-    alpha
+    alpha,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    InputAdornment
 
 } from '@mui/material';
 import {
@@ -26,11 +30,22 @@ import {
     Delete as DeleteIcon,
     ArrowBack as BackIcon,
     Close as CloseIcon,
-    Save as SaveIcon
+    Save as SaveIcon,
+    ExpandMore as ExpandMoreIcon,
+    Tune as TuneIcon
 } from '@mui/icons-material';
 import CategoryTree from './CategoryTree'; // Assuming it's in the same directory or accessible
 
 // ─── Types ───────────────────────────────────────────────
+
+interface FormatOptions {
+    dateFormat?: 'DD-MM-YYYY' | 'MM-DD-YYYY' | 'YYYY-MM-DD';
+    decimals?: number;
+    currencySymbol?: string;
+    transform?: 'uppercase' | 'lowercase';
+    prefix?: string;
+    suffix?: string;
+}
 
 interface FieldDraft {
     id: number;
@@ -40,6 +55,7 @@ interface FieldDraft {
     required: boolean;
     placeholder_mapping: string;
     options_csv: string;
+    format_options?: FormatOptions | null; // NEW: Formatting configuration
 }
 
 interface TemplateRecord {
@@ -70,6 +86,18 @@ const FIELD_TYPES = [
     { value: 'dropdown', label: 'Dropdown' },
     { value: 'checkbox', label: 'Checkbox' },
     { value: 'multiline', label: 'Multi-line Text' },
+];
+
+const DATE_FORMATS = [
+    { value: 'DD-MM-YYYY', label: 'DD-MM-YYYY (15-01-2024)' },
+    { value: 'MM-DD-YYYY', label: 'MM-DD-YYYY (01-15-2024)' },
+    { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (2024-01-15)' },
+];
+
+const TEXT_TRANSFORMS = [
+    { value: '', label: 'None' },
+    { value: 'uppercase', label: 'UPPERCASE' },
+    { value: 'lowercase', label: 'lowercase' },
 ];
 
 /** Convert label to snake_case field key */
@@ -156,7 +184,8 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
                 data_type: gf.data_type,
                 required: gf.required,
                 placeholder_mapping: gf.placeholder_mapping || '',
-                options_csv: ''
+                options_csv: '',
+                format_options: null, // Initialize with null
             }));
 
             setFields(newFields);
@@ -209,6 +238,7 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
                     required: f.required === 1,
                     placeholder_mapping: f.placeholder_mapping || '',
                     options_csv: f.options_json ? (JSON.parse(f.options_json) as string[]).join(', ') : '',
+                    format_options: f.format_options ? JSON.parse(f.format_options) : null, // NEW: Parse format_options
                 }));
                 setFields(draftedFields);
             }
@@ -244,13 +274,39 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
                 required: false,
                 placeholder_mapping: '',
                 options_csv: '',
+                format_options: null, // Initialize with null
             },
         ]);
     };
 
-    const updateField = (id: number, key: keyof FieldDraft, value: string | boolean) => {
+    const updateField = (id: number, key: keyof FieldDraft, value: string | boolean | FormatOptions | null) => {
         setFields((prev) =>
             prev.map((f) => (f.id === id ? { ...f, [key]: value } : f))
+        );
+    };
+
+    const updateFormatOption = (fieldId: number, key: keyof FormatOptions, value: string | number | undefined) => {
+        setFields((prev) =>
+            prev.map((f) => {
+                if (f.id === fieldId) {
+                    const currentOptions = f.format_options || {};
+                    const newOptions = { ...currentOptions, [key]: value || undefined };
+
+                    // Remove undefined values to keep JSON clean
+                    Object.keys(newOptions).forEach(k => {
+                        if (newOptions[k as keyof FormatOptions] === undefined || newOptions[k as keyof FormatOptions] === '') {
+                            delete newOptions[k as keyof FormatOptions];
+                        }
+                    });
+
+                    // If no options left, set to null
+                    return {
+                        ...f,
+                        format_options: Object.keys(newOptions).length > 0 ? newOptions : null
+                    };
+                }
+                return f;
+            })
         );
     };
 
@@ -295,6 +351,7 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
                     f.data_type === 'dropdown' && f.options_csv
                         ? JSON.stringify(f.options_csv.split(',').map((o) => o.trim()).filter(Boolean))
                         : null,
+                format_options: f.format_options ? JSON.stringify(f.format_options) : null, // NEW: Serialize format_options
             }));
 
             let result;
@@ -327,6 +384,180 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
         } finally {
             setSaving(false);
         }
+    };
+
+    // ─── Render Formatting Section ──────────────────────
+
+    const renderFormattingSection = (field: FieldDraft) => {
+        const formatOpts = field.format_options || {};
+        const showDateFormat = field.data_type === 'date';
+        const showCurrency = field.data_type === 'currency';
+        const showDecimals = field.data_type === 'number' || field.data_type === 'currency';
+        const showTextTransform = field.data_type === 'text' || field.data_type === 'multiline';
+        const showPrefixSuffix = true; // Available for all types
+
+        // Don't show formatting section if no options are applicable
+        if (!showDateFormat && !showCurrency && !showDecimals && !showTextTransform && !showPrefixSuffix) {
+            return null;
+        }
+
+        return (
+            <Accordion
+                sx={{
+                    mt: 1.5,
+                    '&:before': { display: 'none' },
+                    boxShadow: 'none',
+                    border: `1px solid ${theme.palette.divider}`,
+                    '&.Mui-expanded': { margin: '12px 0 0 0' }
+                }}
+            >
+                <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{
+                        minHeight: 40,
+                        '&.Mui-expanded': { minHeight: 40 },
+                        '& .MuiAccordionSummary-content': { margin: '8px 0' }
+                    }}
+                >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TuneIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                            Formatting Options
+                        </Typography>
+                        {field.format_options && Object.keys(field.format_options).length > 0 && (
+                            <Chip label="Active" size="small" color="primary" sx={{ height: 20 }} />
+                        )}
+                    </Box>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 1, pb: 2 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                        {/* Date Format */}
+                        {showDateFormat && (
+                            <TextField
+                                select
+                                label="Date Format"
+                                value={formatOpts.dateFormat || 'DD-MM-YYYY'}
+                                onChange={(e) => updateFormatOption(field.id, 'dateFormat', e.target.value as any)}
+                                size="small"
+                                fullWidth
+                            >
+                                {DATE_FORMATS.map((df) => (
+                                    <MenuItem key={df.value} value={df.value}>{df.label}</MenuItem>
+                                ))}
+                            </TextField>
+                        )}
+
+                        {/* Currency Symbol */}
+                        {showCurrency && (
+                            <TextField
+                                label="Currency Symbol"
+                                value={formatOpts.currencySymbol || ''}
+                                onChange={(e) => updateFormatOption(field.id, 'currencySymbol', e.target.value)}
+                                size="small"
+                                placeholder="₹, $, €"
+                                inputProps={{ maxLength: 5 }}
+                            />
+                        )}
+
+                        {/* Decimals */}
+                        {showDecimals && (
+                            <TextField
+                                label="Decimal Places"
+                                type="number"
+                                value={formatOpts.decimals ?? ''}
+                                onChange={(e) => updateFormatOption(field.id, 'decimals', e.target.value ? parseInt(e.target.value) : undefined)}
+                                size="small"
+                                inputProps={{ min: 0, max: 10 }}
+                                placeholder="0-10"
+                            />
+                        )}
+
+                        {/* Text Transform */}
+                        {showTextTransform && (
+                            <TextField
+                                select
+                                label="Text Transform"
+                                value={formatOpts.transform || ''}
+                                onChange={(e) => updateFormatOption(field.id, 'transform', e.target.value as any)}
+                                size="small"
+                                fullWidth
+                            >
+                                {TEXT_TRANSFORMS.map((tt) => (
+                                    <MenuItem key={tt.value} value={tt.value}>{tt.label}</MenuItem>
+                                ))}
+                            </TextField>
+                        )}
+
+                        {/* Prefix */}
+                        <TextField
+                            label="Prefix"
+                            value={formatOpts.prefix || ''}
+                            onChange={(e) => updateFormatOption(field.id, 'prefix', e.target.value)}
+                            size="small"
+                            placeholder="e.g., INV-, Total:"
+                            inputProps={{ maxLength: 20 }}
+                        />
+
+                        {/* Suffix */}
+                        <TextField
+                            label="Suffix"
+                            value={formatOpts.suffix || ''}
+                            onChange={(e) => updateFormatOption(field.id, 'suffix', e.target.value)}
+                            size="small"
+                            placeholder="e.g., %, /month"
+                            inputProps={{ maxLength: 20 }}
+                        />
+                    </Box>
+
+                    {/* Preview */}
+                    {field.format_options && Object.keys(field.format_options).length > 0 && (
+                        <Box sx={{ mt: 2, p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.05), borderRadius: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                Preview (example):
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                {getFormatPreview(field)}
+                            </Typography>
+                        </Box>
+                    )}
+                </AccordionDetails>
+            </Accordion>
+        );
+    };
+
+    const getFormatPreview = (field: FieldDraft): string => {
+        const opts = field.format_options;
+        if (!opts) return 'No formatting';
+
+        let example = '';
+        switch (field.data_type) {
+            case 'date':
+                example = opts.dateFormat === 'MM-DD-YYYY' ? '01-15-2024' :
+                         opts.dateFormat === 'YYYY-MM-DD' ? '2024-01-15' : '15-01-2024';
+                break;
+            case 'currency':
+                example = '1000';
+                if (opts.currencySymbol) example = opts.currencySymbol + example;
+                if (opts.decimals !== undefined) example = example + '.' + '0'.repeat(opts.decimals);
+                break;
+            case 'number':
+                example = '1234';
+                if (opts.decimals !== undefined) example = example + '.' + '5'.repeat(opts.decimals);
+                break;
+            case 'text':
+            case 'multiline':
+                example = 'Sample Text';
+                if (opts.transform === 'uppercase') example = example.toUpperCase();
+                if (opts.transform === 'lowercase') example = example.toLowerCase();
+                break;
+            default:
+                example = 'value';
+        }
+
+        if (opts.prefix) example = opts.prefix + example;
+        if (opts.suffix) example = example + opts.suffix;
+
+        return example;
     };
 
     // ─── Render ──────────────────────────────────────────
@@ -426,6 +657,9 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
                                         {field.data_type === 'dropdown' && (
                                             <TextField label="Options (comma-separated)" value={field.options_csv} onChange={e => updateField(field.id, 'options_csv', e.target.value)} size="small" fullWidth sx={{ mt: 1 }} />
                                         )}
+
+                                        {/* NEW: Formatting Section */}
+                                        {renderFormattingSection(field)}
                                     </Paper>
                                 ))}
                             </Box>

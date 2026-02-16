@@ -173,8 +173,8 @@ export function registerIpcHandlers(): void {
         }
     });
 
-    ipcMain.handle('template:get-all', (_event, page: number = 1, limit: number = 10) => {
-        return database.getTemplates(page, limit);
+    ipcMain.handle('template:get-all', (_event, page: number = 1, limit: number = 10, categoryId?: string | null) => {
+        return database.getTemplates(page, limit, categoryId);
     });
 
     ipcMain.handle('template:get-placeholders', (_event, templateId: string) => {
@@ -190,8 +190,8 @@ export function registerIpcHandlers(): void {
         return updateForm(input);
     });
 
-    ipcMain.handle('form:get-all', (_event, page: number = 1, limit: number = 10) => {
-        return database.getFormsWithDetails(page, limit);
+    ipcMain.handle('form:get-all', (_event, page: number = 1, limit: number = 10, categoryId?: string | null) => {
+        return database.getFormsWithDetails(page, limit, categoryId);
     });
 
     ipcMain.handle('form:get-by-id', (_event, formId: string) => {

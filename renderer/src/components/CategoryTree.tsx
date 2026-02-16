@@ -211,7 +211,6 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
                         )}
                     </Box>
                 }
-                onClick={() => onSelectCategory(node.id)}
             >
                 {Array.isArray(node.children) ? renderTree(node.children) : null}
             </TreeItem>
@@ -236,12 +235,12 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
                 <SimpleTreeView
                     expandedItems={expandedIds}
                     onExpandedItemsChange={(event, itemIds) => setExpandedIds(itemIds)}
-                    selectedItems={selectedCategoryId || ''}
+                    selectedItems={(selectedCategoryId === null || selectedCategoryId === undefined) ? 'root' : selectedCategoryId}
+                    onSelectedItemsChange={(event, itemId) => onSelectCategory(itemId === 'root' ? null : itemId)}
                 >
                     <TreeItem
                         itemId="root"
                         label="All Items"
-                        onClick={() => onSelectCategory(null)}
                         sx={{
                             '& .MuiTreeItem-content': {
                                 py: 1,

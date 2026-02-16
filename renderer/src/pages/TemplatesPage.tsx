@@ -77,7 +77,7 @@ const TemplatesPage: React.FC = () => {
     const [totalTemplates, setTotalTemplates] = useState(0);
 
     // Category State
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null | undefined>(undefined);
     const [treeRefreshTrigger, setTreeRefreshTrigger] = useState(0);
 
     // Placeholder dialog
@@ -93,7 +93,7 @@ const TemplatesPage: React.FC = () => {
     const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
 
     useEffect(() => {
-        if (!selectedCategoryId) {
+        if (selectedCategoryId === undefined || selectedCategoryId === null) {
             setBreadcrumbs([]);
             return;
         }
@@ -296,8 +296,8 @@ const TemplatesPage: React.FC = () => {
                     <Grid item xs={12} md={3} sx={{ height: '100%' }}>
                         <CategoryTree
                             type="TEMPLATE"
-                            selectedCategoryId={selectedCategoryId}
-                            onSelectCategory={setSelectedCategoryId}
+                            selectedCategoryId={selectedCategoryId ?? null}
+                            onSelectCategory={(id) => setSelectedCategoryId(id === null ? undefined : id)}
                             refreshTrigger={treeRefreshTrigger}
                         />
                     </Grid>
@@ -323,7 +323,7 @@ const TemplatesPage: React.FC = () => {
                                         href="#"
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            setSelectedCategoryId(null);
+                                            setSelectedCategoryId(undefined);
                                         }}
                                         sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                                     >

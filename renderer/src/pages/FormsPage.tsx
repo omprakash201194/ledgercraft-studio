@@ -89,8 +89,7 @@ export default function FormsPage() {
 
     // Load breadcrumbs
     useEffect(() => {
-        if (selectedCategoryId === undefined) return;
-        if (selectedCategoryId === null) {
+        if (selectedCategoryId === undefined || selectedCategoryId === null) {
             setBreadcrumbs([]);
             return;
         }
@@ -237,7 +236,7 @@ export default function FormsPage() {
                     <Grid item xs={12} md={3} sx={{ height: '100%' }}>
                         <CategoryTree
                             type="FORM"
-                            onSelectCategory={setSelectedCategoryId}
+                            onSelectCategory={(id) => setSelectedCategoryId(id === null ? undefined : id)}
                             refreshTrigger={treeRefreshTrigger}
                             selectedCategoryId={selectedCategoryId ?? null}
                         />

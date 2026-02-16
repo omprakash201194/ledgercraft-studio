@@ -8,6 +8,12 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     exclude: ['**/node_modules/**', '**/dist/**', '**/build/**'],
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
   },
   resolve: {
     alias: {

@@ -57,6 +57,7 @@ declare global {
             required: boolean;
             placeholder_mapping: string | null;
             options_json: string | null;
+            format_options?: string | null;
         }[];
     }
 
@@ -90,6 +91,7 @@ declare global {
         required: number; // 0 or 1
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }
 
     interface UpdateFormInput {
@@ -105,6 +107,7 @@ declare global {
             required: boolean;
             placeholder_mapping: string | null;
             options_json: string | null;
+            format_options?: string | null;
         }[];
     }
 
@@ -115,6 +118,7 @@ declare global {
         required: boolean;
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }
 
     interface GenerateReportInput {
@@ -140,6 +144,7 @@ declare global {
         generated_at: string;
         form_name: string;
         generated_by_username: string;
+        input_values?: string; // JSON string of input values
     }
 
     interface CategoryNode {
