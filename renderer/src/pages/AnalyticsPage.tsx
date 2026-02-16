@@ -57,26 +57,39 @@ const AnalyticsPage: React.FC = () => {
 
             {/* KPIs */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                     <Card>
                         <CardContent>
                             <Typography color="textSecondary" gutterBottom>
                                 Total Reports Generated
                             </Typography>
                             <Typography variant="h3">
-                                {stats.totalReports}
+                                {stats.totalReports ?? 0}
                             </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={12} md={6}>
+
+                <Grid item xs={12} md={4}>
                     <Card>
                         <CardContent>
                             <Typography color="textSecondary" gutterBottom>
                                 Reports This Month
                             </Typography>
                             <Typography variant="h3">
-                                {stats.reportsThisMonth}
+                                {stats.reportsThisMonth ?? 0}
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <Card>
+                        <CardContent>
+                            <Typography color="textSecondary" gutterBottom>
+                                Deleted Reports
+                            </Typography>
+                            <Typography variant="h3" color="error">
+                                {stats.deletedReports ?? 0}
                             </Typography>
                         </CardContent>
                     </Card>

@@ -189,7 +189,7 @@ export function deleteTemplate(id: string): ServiceResult {
         }
 
         // Get file path to delete file
-        const template = database.getTemplates().find((t) => t.id === id);
+        const template = database.getTemplateById(id);
         if (template && fs.existsSync(template.file_path)) {
             fs.unlinkSync(template.file_path);
         }

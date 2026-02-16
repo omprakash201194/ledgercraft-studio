@@ -59,6 +59,7 @@ export interface Report {
   generated_by: string;
   file_path: string;
   generated_at: string;
+  input_values?: string; // JSON string
 }
 
 // ─── Database Class ──────────────────────────────────────
@@ -216,6 +217,8 @@ class Database {
     // ─── Migrations ──────────────────────────────────────
     this.safeAddColumn('templates', 'category_id', 'TEXT');
     this.safeAddColumn('forms', 'category_id', 'TEXT');
+    this.safeAddColumn('forms', 'is_deleted', 'INTEGER DEFAULT 0');
+    this.safeAddColumn('reports', 'input_values', 'TEXT');
   }
 
   private safeAddColumn(tableName: string, columnName: string, columnType: string): void {
@@ -285,10 +288,37 @@ class Database {
     return { id, ...template, created_at };
   }
 
-  getTemplates(): Template[] {
+  getTemplates(page: number = 1, limit: number = 10, categoryId?: string | null): { templates: (Template & { placeholder_count: number })[]; total: number } {
     const db = this.getConnection();
-    const stmt = db.prepare('SELECT * FROM templates ORDER BY created_at DESC');
-    return stmt.all() as Template[];
+    const offset = (page - 1) * limit;
+
+    let countQuery = 'SELECT COUNT(*) as count FROM templates';
+    let dataQuery = `
+        SELECT t.*, COUNT(tp.id) as placeholder_count
+        FROM templates t
+        LEFT JOIN template_placeholders tp ON tp.template_id = t.id
+    `;
+    const params: any[] = [];
+
+    let whereClause = '';
+    if (categoryId !== undefined) {
+      if (categoryId === null) {
+        whereClause = ' WHERE t.category_id IS NULL';
+      } else {
+        whereClause = ' WHERE t.category_id = ?';
+        params.push(categoryId);
+      }
+    }
+
+    const countResult = db.prepare(countQuery + whereClause.replace('t.', '')).get(...params) as { count: number };
+    const total = countResult.count;
+
+    dataQuery += whereClause;
+    dataQuery += ' GROUP BY t.id ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
+
+    const templates = db.prepare(dataQuery).all(...params, limit, offset) as (Template & { placeholder_count: number })[];
+
+    return { templates, total };
   }
 
   getTemplateById(id: string): Template | undefined {
@@ -338,8 +368,8 @@ class Database {
     const created_at = new Date().toISOString();
 
     const insertForm = db.prepare(`
-      INSERT INTO forms (id, name, template_id, category_id, created_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO forms (id, name, template_id, category_id, created_at, is_deleted)
+      VALUES (?, ?, ?, ?, ?, 0)
     `);
 
     const insertField = db.prepare(`
@@ -428,17 +458,39 @@ class Database {
     return (this.getFormById(id) as any)!; // simpler cast for now
   }
 
-  getFormsWithDetails(): (Form & { template_name: string; field_count: number })[] {
+  getFormsWithDetails(page: number = 1, limit: number = 10, categoryId?: string | null): { forms: (Form & { template_name: string; field_count: number })[]; total: number } {
     const db = this.getConnection();
+    const offset = (page - 1) * limit;
+
+    let whereClause = 'WHERE f.is_deleted = 0'; // Only show non-deleted forms
+    const params: any[] = [];
+
+    if (categoryId !== undefined) {
+      if (categoryId === null) {
+        whereClause += ' AND f.category_id IS NULL';
+      } else {
+        whereClause += ' AND f.category_id = ?';
+        params.push(categoryId);
+      }
+    }
+
+    // We can't rename count to 'total' inside the query easily without wrapper
+    const countStmt = db.prepare(`SELECT COUNT(*) as count FROM forms f ${whereClause}`);
+    const total = (countStmt.get(...params) as { count: number }).count;
+
     const stmt = db.prepare(`
       SELECT f.*, t.name as template_name, COUNT(ff.id) as field_count
       FROM forms f
       LEFT JOIN templates t ON t.id = f.template_id
       LEFT JOIN form_fields ff ON ff.form_id = f.id
+      ${whereClause}
       GROUP BY f.id
       ORDER BY f.created_at DESC
+      LIMIT ? OFFSET ?
     `);
-    return stmt.all() as (Form & { template_name: string; field_count: number })[];
+
+    const forms = stmt.all(...params, limit, offset) as (Form & { template_name: string; field_count: number })[];
+    return { forms, total };
   }
 
   getFormById(formId: string): (Form & { template_name: string }) | undefined {
@@ -447,7 +499,7 @@ class Database {
       SELECT f.*, t.name as template_name
       FROM forms f
       LEFT JOIN templates t ON t.id = f.template_id
-      WHERE f.id = ?
+      WHERE f.id = ? AND f.is_deleted = 0
     `);
     return stmt.get(formId) as (Form & { template_name: string }) | undefined;
   }
@@ -458,6 +510,48 @@ class Database {
     return stmt.all(formId) as FormField[];
   }
 
+  getFormsWithHierarchy(): { id: string; name: string; parent_id: string | null; type: 'CATEGORY' | 'FORM' }[] {
+    const db = this.getConnection();
+    // Get all categories of type FORM
+    const categories = db.prepare(`SELECT id, name, parent_id, 'CATEGORY' as type FROM categories WHERE type = 'FORM'`).all();
+    // Get all forms (non-deleted)
+    const forms = db.prepare(`SELECT id, name, category_id as parent_id, 'FORM' as type FROM forms WHERE is_deleted = 0`).all();
+
+    return [...categories, ...forms] as { id: string; name: string; parent_id: string | null; type: 'CATEGORY' | 'FORM' }[];
+  }
+
+  getRecentForms(limit: number): (Form & { usage_count: number })[] {
+    const db = this.getConnection();
+    const stmt = db.prepare(`
+      SELECT f.*, COUNT(r.id) as usage_count, MAX(r.generated_at) as last_used
+      FROM reports r
+      JOIN forms f ON f.id = r.form_id
+      WHERE f.is_deleted = 0
+      GROUP BY f.id
+      ORDER BY last_used DESC
+      LIMIT ?
+    `);
+    const forms = stmt.all(limit) as (Form & { usage_count: number })[];
+
+    // If we don't have enough recent forms, fill with newest forms
+    if (forms.length < limit) {
+      const existingIds = forms.map(f => f.id);
+      const placeholders = existingIds.length > 0 ? existingIds.map(() => '?').join(',') : "''";
+
+      const remaining = limit - forms.length;
+      const extraForms = db.prepare(`
+            SELECT *, 0 as usage_count FROM forms 
+            WHERE id NOT IN (${placeholders}) AND is_deleted = 0
+            ORDER BY created_at DESC
+            LIMIT ?
+        `).all(...existingIds, remaining) as (Form & { usage_count: number })[];
+
+      return [...forms, ...extraForms];
+    }
+
+    return forms;
+  }
+
   // ─── Repository: Reports ──────────────────────────────
 
   createReport(report: Omit<Report, 'id' | 'generated_at'>): Report {
@@ -466,35 +560,104 @@ class Database {
     const generated_at = new Date().toISOString();
 
     const stmt = db.prepare(`
-      INSERT INTO reports (id, form_id, generated_by, file_path, generated_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO reports (id, form_id, generated_by, file_path, generated_at, input_values)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, report.form_id, report.generated_by, report.file_path, generated_at);
+    stmt.run(id, report.form_id, report.generated_by, report.file_path, generated_at, report.input_values || null);
 
     return { id, ...report, generated_at };
   }
 
-  getReportsWithDetails(): (Report & { form_name: string; generated_by_username: string })[] {
+  getReportById(id: string): Report | undefined {
     const db = this.getConnection();
-    const stmt = db.prepare(`
+    const stmt = db.prepare('SELECT * FROM reports WHERE id = ?');
+    return stmt.get(id) as Report | undefined;
+  }
+
+  getReportsWithDetails(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC'): { reports: (Report & { form_name: string; generated_by_username: string })[]; total: number } {
+    const db = this.getConnection();
+    const offset = (page - 1) * limit;
+
+    let countQuery = 'SELECT COUNT(*) as count FROM reports r LEFT JOIN forms f ON f.id = r.form_id';
+    let dataQuery = `
       SELECT r.*, f.name as form_name, u.username as generated_by_username
       FROM reports r
       LEFT JOIN forms f ON f.id = r.form_id
       LEFT JOIN users u ON u.id = r.generated_by
-      ORDER BY r.generated_at DESC
-    `);
-    return stmt.all() as (Report & { form_name: string; generated_by_username: string })[];
+    `;
+
+    const params: any[] = [];
+    const countParams: any[] = [];
+    const conditions: string[] = [];
+
+    if (formId) {
+      conditions.push('r.form_id = ?');
+      params.push(formId);
+      countParams.push(formId);
+    }
+
+    if (search) {
+      const searchPattern = `%${search}%`;
+      conditions.push('(r.file_path LIKE ? OR f.name LIKE ? OR r.generated_at LIKE ?)');
+      // Accessing params for data query: 3 placeholders
+      params.push(searchPattern, searchPattern, searchPattern);
+      // Accessing params for count query: 3 placeholders
+      countParams.push(searchPattern, searchPattern, searchPattern);
+    }
+
+    if (conditions.length > 0) {
+      const whereClause = ' WHERE ' + conditions.join(' AND ');
+      countQuery += whereClause;
+      dataQuery += whereClause;
+    }
+
+    // specific allow list for sort columns to prevent SQL injection
+    const allowedSorts: Record<string, string> = {
+      'generated_at': 'r.generated_at',
+      'form_name': 'f.name',
+      'file_path': 'r.file_path'
+    };
+    const sortColumn = allowedSorts[sortBy] || 'r.generated_at';
+    const direction = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
+    dataQuery += ` ORDER BY ${sortColumn} ${direction} LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    const countStmt = db.prepare(countQuery);
+    const total = (countStmt.get(...countParams) as { count: number }).count;
+
+    const stmt = db.prepare(dataQuery);
+
+    const reports = stmt.all(...params) as (Report & { form_name: string; generated_by_username: string })[];
+    return { reports, total };
   }
 
-  getReportsByUser(userId: string): (Report & { form_name: string; generated_by_username: string })[] {
+  deleteReport(id: string): void {
     const db = this.getConnection();
+    const stmt = db.prepare('DELETE FROM reports WHERE id = ?');
+    stmt.run(id);
+  }
+
+
+
+  getReportsByUser(userId: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC'): (Report & { form_name: string; generated_by_username: string })[] {
+    const db = this.getConnection();
+
+    const allowedSorts: Record<string, string> = {
+      'generated_at': 'r.generated_at',
+      'form_name': 'f.name',
+      'file_path': 'r.file_path'
+    };
+    const sortColumn = allowedSorts[sortBy] || 'r.generated_at';
+    const direction = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
     const stmt = db.prepare(`
       SELECT r.*, f.name as form_name, u.username as generated_by_username
       FROM reports r
       LEFT JOIN forms f ON f.id = r.form_id
       LEFT JOIN users u ON u.id = r.generated_by
       WHERE r.generated_by = ?
-      ORDER BY r.generated_at DESC
+      ORDER BY ${sortColumn} ${direction}
     `);
     return stmt.all(userId) as (Report & { form_name: string; generated_by_username: string })[];
   }
@@ -597,16 +760,25 @@ class Database {
     return result.count > 0;
   }
 
-  deleteForm(id: string): void {
+  deleteForm(id: string, softDelete: boolean = true): void {
     const db = this.getConnection();
-    // Also delete fields
-    const deleteFields = db.prepare('DELETE FROM form_fields WHERE form_id = ?');
-    const deleteForm = db.prepare('DELETE FROM forms WHERE id = ?');
+    if (softDelete) {
+      const stmt = db.prepare('UPDATE forms SET is_deleted = 1 WHERE id = ?');
+      stmt.run(id);
+    } else {
+      const transaction = db.transaction(() => {
+        db.prepare('DELETE FROM form_fields WHERE form_id = ?').run(id);
+        db.prepare('DELETE FROM forms WHERE id = ?').run(id);
+      });
+      transaction();
+    }
+  }
 
-    db.transaction(() => {
-      deleteFields.run(id);
-      deleteForm.run(id);
-    })();
+  getReportCountByForm(formId: string): number {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM reports WHERE form_id = ?');
+    const row = stmt.get(formId) as { count: number };
+    return row.count;
   }
 }
 

@@ -17,6 +17,7 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
+    DialogContentText,
     DialogActions,
     List,
     ListItem,
@@ -31,6 +32,7 @@ import {
     Tooltip,
     Breadcrumbs,
     Link,
+    TablePagination,
 } from '@mui/material';
 import {
     CloudUpload as UploadIcon,
@@ -70,6 +72,9 @@ const TemplatesPage: React.FC = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [dateFormat, setDateFormat] = useState('DD-MM-YYYY');
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [totalTemplates, setTotalTemplates] = useState(0);
 
     // Category State
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -103,15 +108,18 @@ const TemplatesPage: React.FC = () => {
     const [itemToMove, setItemToMove] = useState<TemplateRecord | null>(null);
 
     const loadTemplates = useCallback(async () => {
+        setLoading(true);
         try {
-            const result = await window.api.getTemplates();
-            setTemplates(result);
+            const result = await window.api.getTemplates(page + 1, rowsPerPage, selectedCategoryId);
+            setTemplates(result.templates);
+            setTotalTemplates(result.total);
+            setFilteredTemplates(result.templates); // The result IS filtered by backend
         } catch {
             // ignore
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page, rowsPerPage, selectedCategoryId]);
 
     useEffect(() => {
         if (user) {
@@ -122,7 +130,14 @@ const TemplatesPage: React.FC = () => {
         loadTemplates();
     }, [loadTemplates, user]);
 
-    // Filter templates when selection changes
+    // Reset page when category changes
+    useEffect(() => {
+        setPage(0);
+    }, [selectedCategoryId]);
+
+    // Filter templates when selection changes - NO LONGER NEEDED CLIENT SIDE
+    // But we need to update filteredTemplates state to render
+    /*
     useEffect(() => {
         if (selectedCategoryId === null) {
             setFilteredTemplates(templates);
@@ -130,6 +145,7 @@ const TemplatesPage: React.FC = () => {
             setFilteredTemplates(templates.filter((t) => t.category_id === selectedCategoryId));
         }
     }, [templates, selectedCategoryId]);
+    */
 
     const handleUpload = async () => {
         setError('');
@@ -221,21 +237,39 @@ const TemplatesPage: React.FC = () => {
         }
     };
 
-    const handleDelete = async () => {
-        if (!menuTarget) return;
-        if (!confirm(`Are you sure you want to delete template "${menuTarget.name}"? This action cannot be undone.`)) {
-            handleMenuClose();
-            return;
-        }
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [templateToDelete, setTemplateToDelete] = useState<TemplateRecord | null>(null);
 
-        const result = await window.api.deleteTemplate(menuTarget.id);
-        if (result.success) {
-            loadTemplates();
-            setSuccess(`Template "${menuTarget.name}" deleted`);
-        } else {
-            setError(result.error || 'Failed to delete template');
-        }
+    const handleDeleteClick = () => {
+        if (!menuTarget) return;
+        setTemplateToDelete(menuTarget);
+        setDeleteDialogOpen(true);
         handleMenuClose();
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!templateToDelete) return;
+
+        try {
+            const result = await window.api.deleteTemplate(templateToDelete.id);
+            if (result.success) {
+                loadTemplates();
+                setSuccess(`Template "${templateToDelete.name}" deleted`);
+            } else {
+                setError(result.error || 'Failed to delete template');
+            }
+        } catch (err) {
+            console.error(err);
+            setError('Failed to delete template');
+        } finally {
+            setDeleteDialogOpen(false);
+            setTemplateToDelete(null);
+        }
+    };
+
+    const handleCloseDeleteDialog = () => {
+        setDeleteDialogOpen(false);
+        setTemplateToDelete(null);
     };
 
 
@@ -376,6 +410,18 @@ const TemplatesPage: React.FC = () => {
                                     </TableBody>
                                 </Table>
                             </TableContainer>
+                            <TablePagination
+                                rowsPerPageOptions={[5, 10, 25]}
+                                component="div"
+                                count={totalTemplates}
+                                rowsPerPage={rowsPerPage}
+                                page={page}
+                                onPageChange={(event, newPage) => setPage(newPage)}
+                                onRowsPerPageChange={(event) => {
+                                    setRowsPerPage(parseInt(event.target.value, 10));
+                                    setPage(0);
+                                }}
+                            />
                         </Paper>
                     </Grid>
                 </Grid>
@@ -405,7 +451,7 @@ const TemplatesPage: React.FC = () => {
                         <ListItemIcon><MoveIcon fontSize="small" /></ListItemIcon>
                         Move
                     </MenuItem>
-                    <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+                    <MenuItem onClick={handleDeleteClick} sx={{ color: 'error.main' }}>
                         <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
                         Delete
                     </MenuItem>
@@ -429,6 +475,31 @@ const TemplatesPage: React.FC = () => {
                     <DialogActions>
                         <Button onClick={() => setMoveDialogOpen(false)}>Cancel</Button>
                         <Button variant="contained" onClick={submitMove}>Move</Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* Delete Confirmation Dialog */}
+                <Dialog
+                    open={deleteDialogOpen}
+                    onClose={handleCloseDeleteDialog}
+                    aria-labelledby="delete-dialog-title"
+                    aria-describedby="delete-dialog-description"
+                >
+                    <DialogTitle id="delete-dialog-title">
+                        Delete Template?
+                    </DialogTitle>
+                    <DialogContent>
+                        <DialogContentText id="delete-dialog-description">
+                            Are you sure you want to delete template "{templateToDelete?.name}"? This action cannot be undone.
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={handleCloseDeleteDialog} color="primary">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleConfirmDelete} color="error" variant="contained" autoFocus>
+                            Delete
+                        </Button>
                     </DialogActions>
                 </Dialog>
             </Box>

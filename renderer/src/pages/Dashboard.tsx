@@ -35,13 +35,9 @@ const Dashboard: React.FC = () => {
     const [recentReports, setRecentReports] = useState<any[]>([]);
 
     useEffect(() => {
-        // Fetch reports
-        window.api.getReports().then(reports => {
-            // Sort by Date Desc
-            const sorted = reports
-                .sort((a, b) => new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime())
-                .slice(0, 5);
-            setRecentReports(sorted);
+        // Fetch recent reports (limit 5)
+        window.api.getReports(1, 5).then(result => {
+            setRecentReports(result.reports);
         }).catch(() => { });
     }, []);
 

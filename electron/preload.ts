@@ -20,21 +20,26 @@ contextBridge.exposeInMainWorld('api', {
     getAllUsers: () => ipcRenderer.invoke('auth:get-all-users'),
 
     // Templates
-    uploadTemplate: () => ipcRenderer.invoke('template:upload'),
-    getTemplates: () => ipcRenderer.invoke('template:get-all'),
+    uploadTemplate: (filePath: string) => ipcRenderer.invoke('template:upload', filePath),
+    getTemplates: (page?: number, limit?: number, categoryId?: string | null) => ipcRenderer.invoke('template:get-all', page, limit, categoryId),
     getTemplatePlaceholders: (templateId: string) => ipcRenderer.invoke('template:get-placeholders', templateId),
 
     // Forms
     createForm: (formData: unknown) => ipcRenderer.invoke('form:create', formData),
     updateForm: (input: unknown) => ipcRenderer.invoke('form:update', input),
-    getForms: () => ipcRenderer.invoke('form:get-all'),
+    getForms: (page?: number, limit?: number, categoryId?: string | null) => ipcRenderer.invoke('form:get-all', page, limit, categoryId),
     getFormById: (formId: string) => ipcRenderer.invoke('form:get-by-id', formId),
     getFormFields: (formId: string) => ipcRenderer.invoke('form:get-fields', formId),
     generateFormFields: (templateId: string) => ipcRenderer.invoke('form:generate-fields', templateId),
+    getFormsWithHierarchy: () => ipcRenderer.invoke('form:get-hierarchy'),
+    getRecentForms: (limit?: number) => ipcRenderer.invoke('form:get-recent', limit),
 
     // Reports
     generateReport: (input: unknown) => ipcRenderer.invoke('report:generate', input),
-    getReports: () => ipcRenderer.invoke('report:get-all'),
+    getReports: (page?: number, limit?: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC') => ipcRenderer.invoke('report:get-all', page, limit, formId, search, sortBy, sortOrder),
+    getReportById: (reportId: string) => ipcRenderer.invoke('report:get-by-id', reportId),
+    deleteReport: (reportId: string) => ipcRenderer.invoke('report:delete', reportId),
+    deleteReports: (reportIds: string[]) => ipcRenderer.invoke('report:delete-bulk', reportIds),
     downloadReport: (filePath: string) => ipcRenderer.invoke('report:download', filePath),
 
     // Categories & Lifecycle
@@ -45,7 +50,8 @@ contextBridge.exposeInMainWorld('api', {
     deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => ipcRenderer.invoke('category:delete', id, type),
     moveItem: (input: unknown) => ipcRenderer.invoke('item:move', input),
     deleteTemplate: (id: string) => ipcRenderer.invoke('template:delete', id),
-    deleteForm: (id: string) => ipcRenderer.invoke('form:delete', id),
+    deleteForm: (id: string, deleteReports?: boolean) => ipcRenderer.invoke('form:delete', id, deleteReports),
+    getFormReportCount: (id: string) => ipcRenderer.invoke('form:get-report-count', id),
 
     // Shell
     openFile: (filePath: string) => ipcRenderer.invoke('shell:open-file', filePath),

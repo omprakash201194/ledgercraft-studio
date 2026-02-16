@@ -181,6 +181,7 @@ declare global {
 
     interface AnalyticsStats {
         totalReports: number;
+        deletedReports: number;
         reportsThisMonth: number;
         reportsByUser: { name: string; value: number }[];
         topForms: { name: string; value: number }[];
@@ -216,21 +217,28 @@ declare global {
             getAllUsers: () => Promise<GetAllUsersResult>;
 
             // Templates
-            uploadTemplate: () => Promise<UploadTemplateResult>;
-            getTemplates: () => Promise<TemplateRecord[]>;
+            uploadTemplate(filePath?: string): Promise<UploadTemplateResult>;
+            getTemplates(page?: number, limit?: number, categoryId?: string | null): Promise<{ templates: TemplateRecord[]; total: number }>;
             getTemplatePlaceholders: (templateId: string) => Promise<TemplatePlaceholder[]>;
 
             // Forms
-            createForm: (input: CreateFormInput) => Promise<{ success: boolean; form?: any; error?: string }>;
-            updateForm: (input: UpdateFormInput) => Promise<{ success: boolean; form?: any; error?: string }>;
-            getForms: () => Promise<FormRecord[]>;
+            createForm(input: CreateFormInput): Promise<CreateFormResult>;
+            updateForm(input: UpdateFormInput): Promise<FormRecord & { fields: FormFieldRecord[] }>;
+            getForms(page?: number, limit?: number, categoryId?: string | null): Promise<{ forms: (FormRecord & { template_name: string; field_count: number })[]; total: number }>;
             getFormById(formId: string): Promise<FormRecord & { fields: FormFieldRecord[] }>;
             getFormFields(formId: string): Promise<FormFieldRecord[]>;
             generateFormFields(templateId: string): Promise<GeneratedField[]>;
+            getFormsWithHierarchy(): Promise<{ id: string; name: string; parent_id: string | null; type: 'CATEGORY' | 'FORM' }[]>;
+            getRecentForms(limit?: number): Promise<(FormRecord & { usage_count: number })[]>;
+            deleteForm: (id: string, deleteReports?: boolean) => Promise<{ success: boolean; error?: string }>;
+            getFormReportCount: (id: string) => Promise<number>;
 
             // Reports
             generateReport: (input: GenerateReportInput) => Promise<GenerateReportResult>;
-            getReports: () => Promise<ReportRecord[]>;
+            getReports(page?: number, limit?: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC'): Promise<{ reports: ReportRecord[]; total: number }>;
+            getReportById: (reportId: string) => Promise<ReportRecord>;
+            deleteReport: (reportId: string) => Promise<{ success: boolean; error?: string }>;
+            deleteReports: (reportIds: string[]) => Promise<{ success: boolean; deletedCount?: number; error?: string }>;
             downloadReport: (filePath: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
 
             // Categories & Lifecycle
@@ -241,7 +249,6 @@ declare global {
             deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => Promise<ServiceResult>;
             moveItem: (input: MoveItemInput) => Promise<ServiceResult>;
             deleteTemplate: (id: string) => Promise<ServiceResult>;
-            deleteForm: (id: string) => Promise<ServiceResult>;
 
             // Shell
             openFile: (filePath: string) => Promise<string>;

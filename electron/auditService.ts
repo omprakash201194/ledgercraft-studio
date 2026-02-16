@@ -24,6 +24,7 @@ export interface AuditLog {
 
 export interface AnalyticsStats {
     totalReports: number;
+    deletedReports: number;
     reportsThisMonth: number;
     reportsByUser: { name: string; value: number }[];
     topForms: { name: string; value: number }[];
@@ -93,8 +94,11 @@ export function getAuditLogs(page = 1, pageSize = 50, filters?: any): { logs: Au
 export function getAnalytics(): AnalyticsStats {
     const db = database.getConnection();
 
-    // Total Reports
+    // Total Reports (Active)
     const totalReports = (db.prepare('SELECT COUNT(*) as count FROM reports').get() as { count: number }).count;
+
+    // Deleted Reports (from Audit Logs)
+    const deletedReports = (db.prepare("SELECT COUNT(*) as count FROM audit_logs WHERE action_type = 'REPORT_DELETE'").get() as { count: number }).count;
 
     // Reports This Month
     const startOfMonth = new Date();
@@ -132,6 +136,7 @@ export function getAnalytics(): AnalyticsStats {
 
     return {
         totalReports,
+        deletedReports,
         reportsThisMonth,
         reportsByUser,
         topForms,

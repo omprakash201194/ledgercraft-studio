@@ -169,8 +169,9 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
 
     const loadTemplates = async () => {
         try {
-            const result = await window.api.getTemplates();
-            setTemplates(result);
+            // Fetch all templates for the dropdown (limit 1000 for now)
+            const result = await window.api.getTemplates(1, 1000);
+            setTemplates(result.templates);
         } catch (err) {
             console.error('Failed to load templates', err);
         }
@@ -297,26 +298,27 @@ const FormWizard: React.FC<FormWizardProps> = ({ open, onClose, onSuccess, editF
 
             let result;
             if (editFormId) {
-                result = await window.api.updateForm({
+                await window.api.updateForm({
                     id: editFormId,
                     name: formName.trim(),
                     template_id: selectedTemplateId,
                     category_id: selectedCategoryId,
                     fields: apiFields
                 });
+                onSuccess();
             } else {
-                result = await window.api.createForm({
+                const result = await window.api.createForm({
                     name: formName.trim(),
                     template_id: selectedTemplateId,
                     category_id: selectedCategoryId,
                     fields: apiFields
                 });
-            }
 
-            if (result.success) {
-                onSuccess();
-            } else {
-                setError(result.error || 'Operation failed');
+                if (result.success) {
+                    onSuccess();
+                } else {
+                    setError(result.error || 'Operation failed');
+                }
             }
         } catch (err: unknown) {
             console.error('Save failed', err);

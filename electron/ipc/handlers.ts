@@ -4,8 +4,8 @@ import { login, logout, tryAutoLogin, getCurrentUser, createUser } from '../auth
 import { database } from '../database';
 import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
-import { createForm, getForms, getFormById, getFormFields, updateForm, generateFieldsFromTemplate, CreateFormInput, UpdateFormInput } from '../formService';
-import { generateReport, getReports, GenerateReportInput } from '../reportService';
+import { createForm, getForms, getFormById, getFormFields, updateForm, generateFieldsFromTemplate, deleteForm, CreateFormInput, UpdateFormInput } from '../formService';
+import { generateReport, getReports, deleteReport, deleteReports, GenerateReportInput } from '../reportService';
 import { getAuditLogs, getAnalytics } from '../auditService';
 import { getUserPreferences, updateUserPreferences } from '../preferenceService';
 import {
@@ -16,7 +16,6 @@ import {
     deleteCategory,
     moveItem,
     deleteTemplate,
-    deleteForm,
     CreateCategoryInput,
     MoveItemInput
 } from '../categoryService';
@@ -58,8 +57,12 @@ export function registerIpcHandlers(): void {
         return deleteTemplate(id);
     });
 
-    ipcMain.handle('form:delete', (_event, id: string) => {
-        return deleteForm(id);
+    ipcMain.handle('form:delete', (_event, formId: string, deleteReports: boolean = false) => {
+        return deleteForm(formId, deleteReports);
+    });
+
+    ipcMain.handle('form:get-report-count', (_event, formId: string) => {
+        return database.getReportCountByForm(formId);
     });
 
     // ─── Reports ─────────────────────────────────────────
@@ -147,26 +150,12 @@ export function registerIpcHandlers(): void {
     });
 
     // ─── Templates ───────────────────────────────────────
-    ipcMain.handle('template:upload', async () => {
-        const result = await dialog.showOpenDialog({
-            title: 'Select a .docx Template',
-            filters: [{ name: 'Word Documents', extensions: ['docx'] }],
-            properties: ['openFile'],
-        });
-
-        if (result.canceled || result.filePaths.length === 0) {
-            return { success: false, error: 'No file selected' };
-        }
-
-        const filePath = result.filePaths[0];
-        const originalName = filePath.split(/[\\/]/).pop() || 'template.docx';
-        const fileBuffer = fs.readFileSync(filePath);
-
-        return uploadTemplate(Buffer.from(fileBuffer), originalName);
+    ipcMain.handle('template:upload', async (_event, filePath: string) => {
+        return app.getVersion();
     });
 
-    ipcMain.handle('template:get-all', () => {
-        return getTemplates();
+    ipcMain.handle('template:get-all', (_event, page: number = 1, limit: number = 10) => {
+        return database.getTemplates(page, limit);
     });
 
     ipcMain.handle('template:get-placeholders', (_event, templateId: string) => {
@@ -182,8 +171,8 @@ export function registerIpcHandlers(): void {
         return updateForm(input);
     });
 
-    ipcMain.handle('form:get-all', () => {
-        return getForms();
+    ipcMain.handle('form:get-all', (_event, page: number = 1, limit: number = 10) => {
+        return database.getFormsWithDetails(page, limit);
     });
 
     ipcMain.handle('form:get-by-id', (_event, formId: string) => {
@@ -198,13 +187,36 @@ export function registerIpcHandlers(): void {
         return generateFieldsFromTemplate(templateId);
     });
 
+    ipcMain.handle('form:get-hierarchy', () => {
+        return database.getFormsWithHierarchy();
+    });
+
+    ipcMain.handle('form:get-recent', (_event, limit: number = 5) => {
+        return database.getRecentForms(limit);
+    });
+
     // ─── Reports ─────────────────────────────────────────
     ipcMain.handle('report:generate', (_event, input: GenerateReportInput) => {
         return generateReport(input);
     });
 
-    ipcMain.handle('report:get-all', () => {
-        return getReports();
+    ipcMain.handle('report:get-all', (_event, page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC') => {
+        console.log('IPC report:get-all', { page, limit, formId, search, sortBy, sortOrder });
+        const safeSortBy = sortBy || 'generated_at';
+        const safeSortOrder = sortOrder || 'DESC';
+        return getReports(page, limit, formId, search, safeSortBy, safeSortOrder);
+    });
+
+    ipcMain.handle('report:get-by-id', (_event, reportId: string) => {
+        return database.getReportById(reportId);
+    });
+
+    ipcMain.handle('report:delete', (_event, reportId: string) => {
+        return deleteReport(reportId);
+    });
+
+    ipcMain.handle('report:delete-bulk', (_event, reportIds: string[]) => {
+        return deleteReports(reportIds); // You need to import this function too
     });
 
     ipcMain.handle('report:download', async (_event, filePath: string) => {

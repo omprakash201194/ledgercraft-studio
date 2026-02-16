@@ -56,8 +56,9 @@ export function generateReport(input: GenerateReportInput): GenerateReportResult
 
         // 4. Load the template .docx file
         // Get template file path from DB
-        const templates = database.getTemplates();
-        const template = templates.find((t) => t.id === form.template_id);
+        // 4. Load the template .docx file
+        // Get template file path from DB
+        const template = database.getTemplateById(form.template_id);
         if (!template) {
             return { success: false, error: 'Template file not found' };
         }
@@ -92,18 +93,30 @@ export function generateReport(input: GenerateReportInput): GenerateReportResult
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const fileName = `${timestamp}.docx`;
+        console.log(`[Report] Form: "${form.name}", Sanitized: "${sanitizedFormName}"`);
+        const fileName = `${sanitizedFormName}_${timestamp}.docx`;
         const filePath = path.join(reportsDir, fileName);
 
         fs.writeFileSync(filePath, outputBuffer);
         console.log(`[Report] Generated: ${filePath}`);
 
-        // 7. Store in database
+        // 7. Store record in database
         const report = database.createReport({
-            form_id: input.form_id,
+            form_id: form.id,
             generated_by: currentUser.id,
             file_path: filePath,
+            input_values: JSON.stringify(input.values),
         });
+
+        if (currentUser) {
+            logAction({
+                userId: currentUser.id,
+                actionType: 'REPORT_GENERATE',
+                entityType: 'REPORT',
+                entityId: report.id,
+                metadata: { formName: form.name }
+            });
+        }
 
         return {
             success: true,
@@ -120,16 +133,99 @@ export function generateReport(input: GenerateReportInput): GenerateReportResult
     }
 }
 
+export function deleteReport(reportId: string): { success: boolean; error?: string } {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        return { success: false, error: 'You must be logged in to delete reports' };
+    }
+
+    try {
+        const report = database.getReportById(reportId);
+        if (!report) {
+            return { success: false, error: 'Report not found' };
+        }
+
+        // Auth check: Admin or Creator
+        if (currentUser.role !== 'ADMIN' && currentUser.id !== report.generated_by) {
+            return { success: false, error: 'You do not have permission to delete this report' };
+        }
+
+        // Delete file from disk
+        if (fs.existsSync(report.file_path)) {
+            try {
+                fs.unlinkSync(report.file_path);
+            } catch (err) {
+                console.error(`[Report] Failed to delete file ${report.file_path}:`, err);
+                // Continue to delete from DB even if file delete fails (or maybe not?)
+                // Let's log it but proceed to clean up DB
+            }
+        }
+
+        // Delete from DB
+        database.deleteReport(reportId);
+
+        logAction({
+            userId: currentUser.id,
+            actionType: 'REPORT_DELETE',
+            entityType: 'REPORT',
+            entityId: reportId,
+        });
+
+        return { success: true };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error deleting report';
+        console.error(`[Report] Delete error: ${message}`);
+        return { success: false, error: message };
+    }
+}
+
+export function deleteReports(reportIds: string[]): { success: boolean; error?: string; deletedCount?: number } {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        return { success: false, error: 'You must be logged in to delete reports' };
+    }
+
+    let deletedCount = 0;
+    const errors: string[] = [];
+
+    for (const id of reportIds) {
+        const result = deleteReport(id);
+        if (result.success) {
+            deletedCount++;
+        } else {
+            console.error(`Failed to delete report ${id}: ${result.error}`);
+            errors.push(`Failed to delete report ${id}: ${result.error}`);
+        }
+    }
+
+    if (deletedCount === 0 && reportIds.length > 0) {
+        return { success: false, error: 'Failed to delete selected reports' };
+    }
+
+    return { success: true, deletedCount };
+}
+
+
+
 /**
  * Get reports — ADMIN sees all, USER sees own.
  */
-export function getReports() {
+export function getReports(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC') {
     const currentUser = getCurrentUser();
-    if (!currentUser) return [];
+    if (!currentUser) return { reports: [], total: 0 };
 
     if (currentUser.role === 'ADMIN') {
-        return database.getReportsWithDetails();
+        return database.getReportsWithDetails(page, limit, formId, search, sortBy, sortOrder);
     }
 
-    return database.getReportsByUser(currentUser.id);
+    // User - fetch all sorted then slice
+    const allReports = database.getReportsByUser(currentUser.id, sortBy, sortOrder);
+    // basic in-memory pagination for user
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    return {
+        reports: allReports.slice(start, end),
+        total: allReports.length
+    };
 }
+

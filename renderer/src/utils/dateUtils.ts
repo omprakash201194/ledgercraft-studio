@@ -19,3 +19,14 @@ export function formatDate(dateStr: string | Date, format: string): string {
             return `${day}-${month}-${year}`;
     }
 }
+
+export function formatDateTime(dateStr: string | Date, format: string): string {
+    const datePart = formatDate(dateStr, format);
+    if (!datePart) return '';
+
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr as string;
+
+    const timePart = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${datePart} ${timePart}`;
+}

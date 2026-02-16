@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
-    Typography,
+    Button,
     Paper,
     Table,
     TableBody,
@@ -9,72 +9,88 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Button,
-    Chip,
-    Fade,
-    Alert,
-    useTheme,
+    Typography,
     IconButton,
+    Menu,
+    MenuItem,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
-    List,
-    ListItem,
-    ListItemIcon,
-    ListItemText,
-    Grid,
-    Menu,
-    MenuItem,
-    Divider,
-    CircularProgress,
-    Tooltip,
+    TextField,
     Breadcrumbs,
     Link,
+    Alert,
+    CircularProgress,
+    Chip,
+    DialogContentText,
+    TablePagination,
+    Grid,
+    Fade
 } from '@mui/material';
-import {
-    Add as AddIcon,
-    Delete as DeleteIcon,
-    DynamicForm as FormIcon,
-    TextFields as FieldIcon,
-    MoreVert as MoreIcon,
-    DriveFileMove as MoveIcon,
-    Edit as EditIcon,
-    Close as CloseIcon,
-} from '@mui/icons-material';
-import CategoryTree from '../components/CategoryTree';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import DescriptionIcon from '@mui/icons-material/Description';
+import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
+
 import FormWizard from '../components/FormWizard';
+import CategoryTree from '../components/CategoryTree';
+import DeleteFormDialog from '../components/DeleteFormDialog';
 
-const FormsPage: React.FC = () => {
-    const theme = useTheme();
-
-    // ─── List View State ─────────────────────────────────
+export default function FormsPage() {
     const [forms, setForms] = useState<FormRecord[]>([]);
-    const [filteredForms, setFilteredForms] = useState<FormRecord[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
-    // Category State
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+    // Pagination
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [totalForms, setTotalForms] = useState(0);
+
+    // Filters & Breadcrumbs
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null | undefined>(undefined);
+    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string, name: string }[]>([]);
     const [treeRefreshTrigger, setTreeRefreshTrigger] = useState(0);
 
-    // ─── Wizard State ────────────────────────────────────
+    // Wizard
     const [wizardOpen, setWizardOpen] = useState(false);
     const [editFormId, setEditFormId] = useState<string | null>(null);
 
-    // ─── Dialogs & Menus ─────────────────────────────────
+    // Delete Dialog
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<FormRecord | null>(null);
+    const [deleteReportCount, setDeleteReportCount] = useState<number | null>(null);
+
+    // View Fields
     const [viewingForm, setViewingForm] = useState<FormRecord | null>(null);
     const [formFields, setFormFields] = useState<FormFieldRecord[]>([]);
-
-
     const [loadingFields, setLoadingFields] = useState(false);
 
-    // Breadcrumbs
-    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
+    // Menu
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [menuTarget, setMenuTarget] = useState<FormRecord | null>(null);
 
+    // Load Data
+    const loadForms = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await window.api.getForms(page + 1, rowsPerPage, selectedCategoryId);
+            setForms(result.forms);
+            setTotalForms(result.total);
+            setLoading(false);
+        } catch (err: unknown) {
+            setError('Failed to load forms.');
+            setLoading(false);
+        }
+    }, [page, rowsPerPage, selectedCategoryId]);
+
+    // Load breadcrumbs
     useEffect(() => {
-        if (!selectedCategoryId) {
+        if (selectedCategoryId === undefined) return;
+        if (selectedCategoryId === null) {
             setBreadcrumbs([]);
             return;
         }
@@ -83,38 +99,16 @@ const FormsPage: React.FC = () => {
             .catch(() => setBreadcrumbs([]));
     }, [selectedCategoryId]);
 
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [menuTarget, setMenuTarget] = useState<FormRecord | null>(null);
-
+    // Move Dialog
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [moveTargetCategoryId, setMoveTargetCategoryId] = useState<string | null>(null);
     const [itemToMove, setItemToMove] = useState<FormRecord | null>(null);
-
-    // ─── Effects ─────────────────────────────────────────
-    const loadForms = useCallback(async () => {
-        try {
-            const result = await window.api.getForms();
-            setForms(result);
-        } catch {
-            // ignore
-        } finally {
-            setLoading(false);
-        }
-    }, []);
 
     useEffect(() => {
         loadForms();
     }, [loadForms]);
 
-    useEffect(() => {
-        if (selectedCategoryId === null) {
-            setFilteredForms(forms);
-        } else {
-            setFilteredForms(forms.filter((f) => f.category_id === selectedCategoryId));
-        }
-    }, [forms, selectedCategoryId]);
-
-    // ─── Actions ─────────────────────────────────────────
+    // Handlers
     const handleCreate = () => {
         setEditFormId(null);
         setWizardOpen(true);
@@ -181,87 +175,101 @@ const FormsPage: React.FC = () => {
         }
     };
 
-    const handleDelete = async () => {
+    const handleDeleteClick = async () => {
         if (!menuTarget) return;
-        if (!confirm(`Are you sure you want to delete form "${menuTarget.name}"?`)) {
-            handleMenuClose();
-            return;
+        setItemToDelete(menuTarget);
+        handleMenuClose();
+
+        // Fetch report count
+        try {
+            const count = await window.api.getFormReportCount(menuTarget.id);
+            setDeleteReportCount(count);
+            setDeleteDialogOpen(true);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to check reports for this form');
         }
-        const result = await window.api.deleteForm(menuTarget.id);
+    };
+
+    const confirmDelete = async (deleteReports: boolean) => {
+        if (!itemToDelete) return;
+
+        const result = await window.api.deleteForm(itemToDelete.id, deleteReports);
         if (result.success) {
-            setSuccess(`Form "${menuTarget.name}" deleted`);
+            setSuccess(deleteReports ? 'Form and reports deleted successfully' : 'Form archived successfully');
             loadForms();
-            // Force tree refresh if needed (though categories usually don't change on form delete)
+            // Also refresh tree in case we support form counts in tree later
+            setTreeRefreshTrigger(prev => prev + 1);
         } else {
             setError(result.error || 'Failed to delete form');
         }
-        handleMenuClose();
-    };
+        setDeleteDialogOpen(false);
+        setItemToDelete(null);
+    }
 
-    // ─── Renders ─────────────────────────────────────────
+    const [dateFormat, setDateFormat] = useState('DD-MM-YYYY');
+    const { user } = window.api ? { user: { id: 'dummy' } } : { user: null }; // Mock or useAuth if available
+
+    useEffect(() => {
+        // Fetch date format preference if needed or use default
+        // window.api.getUserPreferences...
+    }, []);
 
     return (
         <Fade in timeout={500}>
             <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h5">Forms</Typography>
-                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>Create Form</Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleCreate}
+                    >
+                        Create Form
+                    </Button>
                 </Box>
 
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+                {error && <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>{error}</Alert>}
+                {success && <Alert severity="success" onClose={() => setSuccess(null)} sx={{ mb: 2 }}>{success}</Alert>}
 
                 <Grid container spacing={2} sx={{ flexGrow: 1, minHeight: 0 }}>
-                    {/* Left Panel */}
+                    {/* Left Panel: Category Tree */}
                     <Grid item xs={12} md={3} sx={{ height: '100%' }}>
                         <CategoryTree
                             type="FORM"
-                            selectedCategoryId={selectedCategoryId}
                             onSelectCategory={setSelectedCategoryId}
                             refreshTrigger={treeRefreshTrigger}
+                            selectedCategoryId={selectedCategoryId ?? null}
                         />
                     </Grid>
 
-                    {/* Right Panel */}
+                    {/* Right Panel: Content */}
                     <Grid item xs={12} md={9} sx={{ height: '100%', overflow: 'hidden' }}>
-                        <Paper elevation={0} sx={{ height: '100%', border: `1px solid ${theme.palette.divider}`, display: 'flex', flexDirection: 'column' }}>
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                height: '100%',
+                                border: '1px solid #e0e0e0', // theme.palette.divider hardcoded or use theme
+                                display: 'flex',
+                                flexDirection: 'column',
+                            }}
+                        >
                             {/* Breadcrumbs */}
-                            <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, backgroundColor: theme.palette.action.hover }}>
+                            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #e0e0e0', backgroundColor: '#f5f5f5' }}> {/* match theme.palette.action.hover if possible */}
                                 <Breadcrumbs aria-label="breadcrumb">
                                     <Link
-                                        underline="hover"
                                         color="inherit"
-                                        href="#"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            setSelectedCategoryId(null);
-                                        }}
-                                        sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                                        underline="hover"
+                                        onClick={() => setSelectedCategoryId(null)}
+                                        sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                     >
                                         <Typography variant="body2">All Forms</Typography>
                                     </Link>
-                                    {breadcrumbs.map((crumb, index) => {
-                                        const isLast = index === breadcrumbs.length - 1;
-                                        return isLast ? (
-                                            <Typography key={crumb.id} color="text.primary" variant="body2" sx={{ fontWeight: 600 }}>
-                                                {crumb.name}
-                                            </Typography>
-                                        ) : (
-                                            <Link
-                                                key={crumb.id}
-                                                underline="hover"
-                                                color="inherit"
-                                                href="#"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    setSelectedCategoryId(crumb.id);
-                                                }}
-                                                sx={{ cursor: 'pointer' }}
-                                            >
-                                                <Typography variant="body2">{crumb.name}</Typography>
-                                            </Link>
-                                        );
-                                    })}
+                                    {breadcrumbs.map((crumb, index) => (
+                                        <Typography key={crumb.id} color={index === breadcrumbs.length - 1 ? 'text.primary' : 'inherit'} variant="body2">
+                                            {crumb.name}
+                                        </Typography>
+                                    ))}
                                 </Breadcrumbs>
                             </Box>
 
@@ -269,106 +277,170 @@ const FormsPage: React.FC = () => {
                                 <Table stickyHeader>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>Form Name</TableCell>
+                                            <TableCell>Name</TableCell>
                                             <TableCell>Template</TableCell>
-                                            <TableCell>Categories</TableCell>
-                                            <TableCell>Actions</TableCell>
+                                            <TableCell>Fields</TableCell>
+                                            <TableCell>Created At</TableCell>
+                                            <TableCell align="right">Actions</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {filteredForms.map((form) => (
-                                            <TableRow key={form.id} hover>
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <FormIcon color="primary" fontSize="small" />
-                                                        <Typography variant="body2">{form.name}</Typography>
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell>{form.template_name}</TableCell>
-                                                <TableCell>
-                                                    <Chip label={form.field_count + ' fields'} size="small" />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button size="small" onClick={() => handleViewFields(form)}>View</Button>
-                                                    <IconButton size="small" onClick={(e) => handleMenuOpen(e, form)}><MoreIcon /></IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                        {filteredForms.length === 0 && (
+                                        {loading ? (
                                             <TableRow>
-                                                <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                                                    No forms in this category.
+                                                <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
+                                                    <CircularProgress />
                                                 </TableCell>
                                             </TableRow>
+                                        ) : forms.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
+                                                    <Typography color="textSecondary">
+                                                        No forms found in this category.
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            forms.map((form) => (
+                                                <TableRow key={form.id} hover onClick={() => handleViewFields(form)} sx={{ cursor: 'pointer' }}>
+                                                    <TableCell>
+                                                        <Box display="flex" alignItems="center">
+                                                            <DescriptionIcon color="primary" sx={{ mr: 1, fontSize: 20 }} />
+                                                            <Typography variant="body2">
+                                                                {form.name}
+                                                            </Typography>
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell>{form.template_name}</TableCell>
+                                                    <TableCell>
+                                                        <Chip label={form.field_count} size="small" variant="outlined" />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {new Date(form.created_at).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, form)}>
+                                                            <MoreVertIcon />
+                                                        </IconButton>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
                                         )}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
+
+                            <TablePagination
+                                component="div"
+                                count={totalForms}
+                                page={page}
+                                onPageChange={(e, newPage) => setPage(newPage)}
+                                rowsPerPage={rowsPerPage}
+                                onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
+                            />
                         </Paper>
                     </Grid>
                 </Grid>
 
-                {/* Wizard Dialog */}
+                {/* Dialogs and Menus */}
+                <Menu
+                    anchorEl={anchorEl}
+                    open={Boolean(anchorEl)}
+                    onClose={handleMenuClose}
+                >
+                    <MenuItem onClick={handleEdit}>
+                        <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+                    </MenuItem>
+                    <MenuItem onClick={handleMoveStart}>
+                        <DriveFileMoveIcon fontSize="small" sx={{ mr: 1 }} /> Move
+                    </MenuItem>
+                    <MenuItem onClick={handleDeleteClick} sx={{ color: 'error.main' }}>
+                        <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+                    </MenuItem>
+                </Menu>
+
                 <FormWizard
                     open={wizardOpen}
                     onClose={() => setWizardOpen(false)}
                     onSuccess={handleWizardSuccess}
                     editFormId={editFormId}
-                    initialCategoryId={selectedCategoryId}
                 />
 
-                {/* Move Dialog */}
-                <Dialog open={moveDialogOpen} onClose={() => setMoveDialogOpen(false)} maxWidth="sm" fullWidth>
+                <Dialog open={!!viewingForm} onClose={() => setViewingForm(null)} maxWidth="md" fullWidth>
+                    <DialogTitle>
+                        Fields in "{viewingForm?.name}"
+                    </DialogTitle>
+                    <DialogContent dividers>
+                        {loadingFields ? (
+                            <Box display="flex" justifyContent="center" p={3}>
+                                <CircularProgress />
+                            </Box>
+                        ) : (
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Label</TableCell>
+                                        <TableCell>Type</TableCell>
+                                        <TableCell>Required</TableCell>
+                                        <TableCell>Placeholder</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {formFields.map((field) => (
+                                        <TableRow key={field.id}>
+                                            <TableCell>{field.label}</TableCell>
+                                            <TableCell>{field.data_type}</TableCell>
+                                            <TableCell>{field.required ? 'Yes' : 'No'}</TableCell>
+                                            <TableCell>{field.placeholder_mapping || '-'}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setViewingForm(null)}>Close</Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={moveDialogOpen} onClose={() => setMoveDialogOpen(false)}>
                     <DialogTitle>Move Form</DialogTitle>
-                    <DialogContent sx={{ height: 400, display: 'flex', flexDirection: 'column' }}>
-                        <Typography variant="caption" sx={{ mb: 1 }}>Select destination category:</Typography>
-                        <Box sx={{ flexGrow: 1, border: '1px solid #ddd' }}>
+                    <DialogContent>
+                        <DialogContentText>
+                            Select the new category for "{itemToMove?.name}".
+                        </DialogContentText>
+                        <Box mt={2} sx={{ minWidth: 300, border: '1px solid #ddd' }}>
                             <CategoryTree
                                 type="FORM"
-                                selectedCategoryId={moveTargetCategoryId}
                                 onSelectCategory={setMoveTargetCategoryId}
+                                selectedCategoryId={moveTargetCategoryId}
                                 refreshTrigger={treeRefreshTrigger}
-                                readOnly
                             />
+                        </Box>
+                        <Box mt={1}>
+                            <Typography variant="caption" color="textSecondary">
+                                Selected: {moveTargetCategoryId === null ? 'Uncategorized (Root)' : 'Category ID: ' + moveTargetCategoryId}
+                            </Typography>
                         </Box>
                     </DialogContent>
                     <DialogActions>
                         <Button onClick={() => setMoveDialogOpen(false)}>Cancel</Button>
-                        <Button variant="contained" onClick={submitMove}>Move</Button>
+                        <Button onClick={submitMove} variant="contained" color="primary">
+                            Move
+                        </Button>
                     </DialogActions>
                 </Dialog>
 
-                {/* Context Menu */}
-                <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                    <MenuItem onClick={handleEdit}><ListItemIcon><EditIcon fontSize="small" /></ListItemIcon> Edit</MenuItem>
-                    <MenuItem onClick={handleMoveStart}><ListItemIcon><MoveIcon fontSize="small" /></ListItemIcon> Move</MenuItem>
-                    <Divider />
-                    <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}><ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon> Delete</MenuItem>
-                </Menu>
-
-                {/* View Fields Dialog */}
-                <Dialog open={!!viewingForm} onClose={() => setViewingForm(null)} maxWidth="sm" fullWidth>
-                    <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        {viewingForm?.name}
-                        <IconButton onClick={() => setViewingForm(null)}><CloseIcon /></IconButton>
-                    </DialogTitle>
-                    <DialogContent dividers>
-                        {loadingFields ? <CircularProgress size={24} /> : (
-                            <List dense>
-                                {formFields.map(ff => (
-                                    <ListItem key={ff.id}>
-                                        <ListItemIcon><FieldIcon color="primary" /></ListItemIcon>
-                                        <ListItemText primary={ff.label} secondary={ff.data_type} />
-                                        {ff.required === 1 && <Chip label="Req" size="small" color="error" variant="outlined" />}
-                                    </ListItem>
-                                ))}
-                            </List>
-                        )}
-                    </DialogContent>
-                </Dialog>
+                {itemToDelete && (
+                    <DeleteFormDialog
+                        open={deleteDialogOpen}
+                        onClose={() => setDeleteDialogOpen(false)}
+                        onConfirm={confirmDelete}
+                        reportCount={deleteReportCount}
+                        formName={itemToDelete.name}
+                        formId={itemToDelete.id}
+                    />
+                )}
             </Box>
         </Fade>
     );
-};
-
-export default FormsPage;
+}

@@ -1,6 +1,7 @@
 import { database, FormField } from './database';
 import { getCurrentUser } from './auth';
 import { logAction } from './auditService';
+import fs from 'fs';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -95,6 +96,84 @@ export function createForm(input: CreateFormInput): CreateFormResult {
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error creating form';
         console.error(`[Form] Error: ${message}`);
+        return { success: false, error: message };
+    }
+}
+
+export function deleteForm(formId: string, deleteReports: boolean = false): { success: boolean; error?: string } {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        return { success: false, error: 'You must be logged in to delete forms' };
+    }
+
+    // Only Admins or perhaps Creators should delete forms. 
+    // For now, let's restrict to ADMIN for hard delete, or maybe anyone can soft delete their own?
+    // Let's stick to simple role check: Admin can do anything.
+    if (currentUser.role !== 'ADMIN') {
+        return { success: false, error: 'Only administrators can delete forms' };
+    }
+
+    try {
+        const form = database.getFormById(formId);
+        if (!form) {
+            return { success: false, error: 'Form not found' };
+        }
+
+        if (deleteReports) {
+            // HARD DELETE: Valid only if we also delete reports
+            // 1. Get all reports for this form
+            // We need a way to get reports by form. database.ts doesn't have it exposed efficiently yet?
+            // Actually, we can just delete from DB with cascade if we had it, but we need to delete FILES too.
+            // So we must iterate.
+
+            // New helper needed in database to get reports by form? 
+            // Or we just iterate all reports (inefficient).
+            // Let's add getReportsByForm to database.ts first? 
+            // OR, simpler: just use a direct query here if we could, but we can't access DB instance directly easily.
+            // Wait, we can use database object.
+
+            const reports = database.getConnection().prepare('SELECT * FROM reports WHERE form_id = ?').all(formId) as any[];
+
+            for (const report of reports) {
+                if (fs.existsSync(report.file_path)) {
+                    try {
+                        fs.unlinkSync(report.file_path);
+                    } catch (e) {
+                        console.error(`[FormService] Failed to delete report file ${report.file_path}`, e);
+                    }
+                }
+            }
+
+            // Now we can hard delete form (and reports will be CASCADE deleted in DB or we delete them manually)
+            // Schema says: FOREIGN KEY (form_id) REFERENCES forms(id)
+            // But we didn't specify ON DELETE CASCADE in schema!
+            // So we must delete reports from DB first.
+            database.getConnection().prepare('DELETE FROM reports WHERE form_id = ?').run(formId);
+
+            // Now hard delete form
+            database.deleteForm(formId, false); // false = hard delete
+            logAction({
+                userId: currentUser.id,
+                actionType: 'FORM_DELETE_HARD',
+                entityType: 'FORM',
+                entityId: formId,
+            });
+
+        } else {
+            // SOFT DELETE (Archive)
+            database.deleteForm(formId, true); // true = soft delete
+            logAction({
+                userId: currentUser.id,
+                actionType: 'FORM_DELETE_SOFT',
+                entityType: 'FORM',
+                entityId: formId,
+            });
+        }
+
+        return { success: true };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error deleting form';
+        console.error(`[FormService] Delete error: ${message}`);
         return { success: false, error: message };
     }
 }
