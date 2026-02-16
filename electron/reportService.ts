@@ -6,6 +6,7 @@ import { app } from 'electron';
 import { database } from './database';
 import { getCurrentUser } from './auth';
 import { logAction } from './auditService';
+import { applyFieldFormatting, FieldFormatOptions } from './utils/applyFieldFormatting';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -49,8 +50,25 @@ export function generateReport(input: GenerateReportInput): GenerateReportResult
         const placeholderValues: Record<string, string> = {};
         for (const field of fields) {
             if (field.placeholder_mapping) {
-                const value = input.values[field.field_key];
-                placeholderValues[field.placeholder_mapping] = value != null ? String(value) : '';
+                const rawValue = input.values[field.field_key];
+
+                // Apply formatting if format_options exists
+                let formattedValue: string;
+                if (field.format_options) {
+                    try {
+                        const formatOptions: FieldFormatOptions = JSON.parse(field.format_options);
+                        formattedValue = applyFieldFormatting(rawValue, field.data_type, formatOptions);
+                    } catch (error) {
+                        // If JSON parsing fails, fall back to plain string conversion
+                        console.error('[Report] Failed to parse format_options:', error);
+                        formattedValue = rawValue != null ? String(rawValue) : '';
+                    }
+                } else {
+                    // No format_options - behave exactly as before
+                    formattedValue = rawValue != null ? String(rawValue) : '';
+                }
+
+                placeholderValues[field.placeholder_mapping] = formattedValue;
             }
         }
 
