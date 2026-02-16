@@ -12,6 +12,8 @@
     "build": "tsc -p tsconfig.electron.json && vite build --config vite.config.ts && electron-builder --config electron-builder.json",
     "build:renderer": "vite build --config vite.config.ts",
     "build:electron": "tsc -p tsconfig.electron.json",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
     "postinstall": "electron-rebuild"
   },
   "dependencies": {
@@ -50,6 +52,7 @@
     "eslint": "^9.39.2",
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
+    "vitest": "^4.0.18",
     "wait-on": "^8.0.3"
   }
 }
