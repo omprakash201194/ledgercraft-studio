@@ -60,7 +60,7 @@ export function restoreBackup(sourcePath: string): BackupResult {
         try {
             database.close();
         } catch (e) {
-            console.warn('Database close warning:', e);
+
         }
 
         // 3. Prepare directories (Templates & Reports)

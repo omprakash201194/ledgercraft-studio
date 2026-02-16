@@ -150,8 +150,27 @@ export function registerIpcHandlers(): void {
     });
 
     // ─── Templates ───────────────────────────────────────
-    ipcMain.handle('template:upload', async (_event, filePath: string) => {
-        return app.getVersion();
+    ipcMain.handle('template:upload', async (_event) => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Select Template',
+            filters: [{ name: 'Word Documents', extensions: ['docx'] }],
+            properties: ['openFile']
+        });
+
+        if (canceled || filePaths.length === 0) {
+            return { success: false, error: 'No file selected' };
+        }
+
+        try {
+            const filePath = filePaths[0];
+            const fileBuffer = fs.readFileSync(filePath);
+            const originalName = filePath.split(/[\\/]/).pop() || 'template.docx';
+
+            return uploadTemplate(fileBuffer, originalName);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            return { success: false, error: `Upload failed: ${message}` };
+        }
     });
 
     ipcMain.handle('template:get-all', (_event, page: number = 1, limit: number = 10) => {
@@ -201,7 +220,7 @@ export function registerIpcHandlers(): void {
     });
 
     ipcMain.handle('report:get-all', (_event, page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC') => {
-        console.log('IPC report:get-all', { page, limit, formId, search, sortBy, sortOrder });
+
         const safeSortBy = sortBy || 'generated_at';
         const safeSortOrder = sortOrder || 'DESC';
         return getReports(page, limit, formId, search, safeSortBy, safeSortOrder);

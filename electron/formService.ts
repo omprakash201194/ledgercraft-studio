@@ -80,7 +80,7 @@ export function createForm(input: CreateFormInput): CreateFormResult {
             dbFields
         );
 
-        console.log(`[Form] Created form "${form.name}" with ${input.fields.length} field(s)`);
+
 
         if (currentUser) {
             logAction({

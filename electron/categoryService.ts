@@ -128,7 +128,7 @@ export function deleteCategory(id: string, type: 'TEMPLATE' | 'FORM'): ServiceRe
 
 export function moveItem(input: MoveItemInput): MoveItemResult {
     try {
-        console.log(`[CategoryService] Moving Item: type=${input.type}, itemId=${input.itemId}, target=${input.targetCategoryId}`);
+
 
         // Validate Target Category (if not root)
         if (input.targetCategoryId) {
@@ -161,7 +161,7 @@ export function moveItem(input: MoveItemInput): MoveItemResult {
             updatedItem = database.getFormById(input.itemId); // Refetch
         }
 
-        console.log(`[CategoryService] Move successful. New Category: ${input.targetCategoryId}`);
+
 
         const currentUser = getCurrentUser();
         if (currentUser) {

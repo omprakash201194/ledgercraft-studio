@@ -47,7 +47,7 @@ export function login(username: string, password: string): AuthResult {
     }
 
     currentUser = toSafeUser(user);
-    console.log(`[Auth] User logged in: ${username} (${user.role})`);
+
     logAction({
         userId: user.id,
         actionType: 'USER_LOGIN',
@@ -62,7 +62,7 @@ export function login(username: string, password: string): AuthResult {
 
 export function logout(): void {
     if (currentUser) {
-        console.log(`[Auth] User logged out: ${currentUser.username}`);
+
         logAction({
             userId: currentUser.id,
             actionType: 'USER_LOGOUT',
@@ -115,7 +115,7 @@ export function tryAutoLogin(): AuthResult {
         // Check if expired (24h)
         const age = Date.now() - data.loginTime;
         if (age > 24 * 60 * 60 * 1000) {
-            console.log('[Auth] Session expired');
+
             deleteSession();
             return { success: false, error: 'Session expired' };
         }
@@ -127,7 +127,7 @@ export function tryAutoLogin(): AuthResult {
         }
 
         currentUser = toSafeUser(user);
-        console.log(`[Auth] Auto-login successful: ${user.username}`);
+
         return { success: true, user: currentUser };
     } catch (err) {
         console.error('[Auth] Auto-login failed:', err);
@@ -165,7 +165,7 @@ export function createUser(
     const password_hash = bcrypt.hashSync(password, salt);
 
     const user = database.createUser({ username, password_hash, role });
-    console.log(`[Auth] User created: ${username} (${role})`);
+
 
     if (currentUser) {
         logAction({
@@ -194,6 +194,6 @@ export function bootstrapAdmin(): void {
             role: 'ADMIN',
         });
 
-        console.log('[Auth] Default admin user created (admin / admin123)');
+
     }
 }

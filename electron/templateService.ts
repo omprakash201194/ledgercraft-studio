@@ -48,11 +48,11 @@ export function uploadTemplate(fileBuffer: Buffer, originalName: string): Upload
         }
 
         fs.writeFileSync(filePath, fileBuffer);
-        console.log(`[Template] File saved: ${filePath}`);
+
 
         // 2. Extract placeholders from the .docx content
         const placeholders = extractPlaceholders(fileBuffer);
-        console.log(`[Template] Extracted ${placeholders.length} placeholders from "${originalName}"`);
+
 
         // 3. Store template record in database
         const template = database.createTemplate({

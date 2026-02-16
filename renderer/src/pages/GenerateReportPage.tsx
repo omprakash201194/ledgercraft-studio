@@ -80,6 +80,7 @@ const GenerateReportPage: React.FC = () => {
     const initialReportId = queryParams.get('reportId');
     const initialFormId = queryParams.get('formId');
 
+
     const [hierarchy, setHierarchy] = useState<HierarchyNode[]>([]);
     const [flatItems, setFlatItems] = useState<HierarchyNode[]>([]);
     const [recentForms, setRecentForms] = useState<FormRecord[]>([]);
@@ -97,6 +98,7 @@ const GenerateReportPage: React.FC = () => {
         open: false,
         message: '',
     });
+
 
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedItems, setExpandedItems] = useState<string[]>([]);

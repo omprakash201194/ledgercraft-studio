@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('api', {
     getAllUsers: () => ipcRenderer.invoke('auth:get-all-users'),
 
     // Templates
-    uploadTemplate: (filePath: string) => ipcRenderer.invoke('template:upload', filePath),
+    uploadTemplate: () => ipcRenderer.invoke('template:upload'),
     getTemplates: (page?: number, limit?: number, categoryId?: string | null) => ipcRenderer.invoke('template:get-all', page, limit, categoryId),
     getTemplatePlaceholders: (templateId: string) => ipcRenderer.invoke('template:get-placeholders', templateId),
 

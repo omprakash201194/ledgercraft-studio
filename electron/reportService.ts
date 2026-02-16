@@ -93,12 +93,12 @@ export function generateReport(input: GenerateReportInput): GenerateReportResult
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        console.log(`[Report] Form: "${form.name}", Sanitized: "${sanitizedFormName}"`);
+
         const fileName = `${sanitizedFormName}_${timestamp}.docx`;
         const filePath = path.join(reportsDir, fileName);
 
         fs.writeFileSync(filePath, outputBuffer);
-        console.log(`[Report] Generated: ${filePath}`);
+
 
         // 7. Store record in database
         const report = database.createReport({

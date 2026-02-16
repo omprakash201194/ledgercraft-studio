@@ -20,6 +20,7 @@ import {
     TablePagination,
     useTheme,
     alpha,
+
     TextField,
     InputAdornment,
     IconButton,
@@ -80,7 +81,7 @@ const ReportsPage: React.FC = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string, name: string }[]>([]);
+
 
     // Sorting
     const [sortBy, setSortBy] = useState<string>('generated_at');

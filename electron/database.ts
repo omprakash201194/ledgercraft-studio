@@ -85,7 +85,7 @@ class Database {
       this.db.pragma('foreign_keys = ON');
 
       this.createSchema();
-      console.log(`[Database] Initialized at: ${this.dbPath}`);
+
     } catch (err) {
       console.error('[Database] CORRUPTION DETECTED:', err);
       this.isCorrupted = true;
@@ -122,7 +122,7 @@ class Database {
     if (this.db) {
       this.db.close();
       this.db = null;
-      console.log('[Database] Connection closed.');
+
     }
   }
 
@@ -228,7 +228,7 @@ class Database {
 
     if (!columnExists) {
       db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`);
-      console.log(`[Database] Added column ${columnName} to ${tableName}`);
+
     }
   }
 

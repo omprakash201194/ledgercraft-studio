@@ -19,7 +19,7 @@ export function initializeStorage(): string {
         }
     }
 
-    console.log(`[Storage] App data directory initialized: ${appDataPath}`);
+
     return appDataPath;
 }
 
