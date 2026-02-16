@@ -51,6 +51,7 @@ export interface FormField {
   required: number;
   placeholder_mapping: string | null;
   options_json: string | null;
+  format_options?: string | null;
 }
 
 export interface Report {
@@ -219,6 +220,7 @@ class Database {
     this.safeAddColumn('forms', 'category_id', 'TEXT');
     this.safeAddColumn('forms', 'is_deleted', 'INTEGER DEFAULT 0');
     this.safeAddColumn('reports', 'input_values', 'TEXT');
+    this.safeAddColumn('form_fields', 'format_options', 'TEXT');
   }
 
   private safeAddColumn(tableName: string, columnName: string, columnType: string): void {
@@ -228,7 +230,7 @@ class Database {
 
     if (!columnExists) {
       db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`);
-
+      console.error(`[Database] Added column ${columnName} to ${tableName}`);
     }
   }
 
