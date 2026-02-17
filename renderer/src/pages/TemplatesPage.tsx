@@ -153,6 +153,7 @@ const TemplatesPage: React.FC = () => {
     // Upload Dialog State
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
     const [analyzedTemplate, setAnalyzedTemplate] = useState<AnalyzeTemplateResult | null>(null);
+    const [uploadCategoryId, setUploadCategoryId] = useState<string | null | undefined>(undefined);
 
     const handleUploadClick = async () => {
         setError('');
@@ -171,6 +172,8 @@ const TemplatesPage: React.FC = () => {
             setUploadDialogOpen(true);
             // Default auto-create to false when opening dialog
             setAutoCreateForm(false);
+            // Initialize category selection with current global selection
+            setUploadCategoryId(selectedCategoryId || null);
         } catch (err) {
             console.error(err);
             setError('Failed to analyze template');
@@ -186,7 +189,7 @@ const TemplatesPage: React.FC = () => {
         setSuccess('');
 
         try {
-            const result = await window.api.processTemplateUpload(analyzedTemplate.filePath, autoCreateForm, selectedCategoryId);
+            const result = await window.api.processTemplateUpload(analyzedTemplate.filePath, autoCreateForm, uploadCategoryId);
             if (result.success && result.template) {
                 setSuccess(
                     autoCreateForm
@@ -194,17 +197,6 @@ const TemplatesPage: React.FC = () => {
                         : 'Template uploaded successfully.'
                 );
                 loadTemplates();
-                // Optionally move to current category if selected - NOW HANDLED BY BACKEND
-                /*
-                if (selectedCategoryId && result.template) {
-                     await window.api.moveItem({
-                        itemId: result.template.id,
-                        targetCategoryId: selectedCategoryId,
-                        type: 'TEMPLATE',
-                    });
-                    loadTemplates();
-                }
-                */
             } else {
                 setError(result.error || 'Upload failed');
             }
@@ -539,6 +531,21 @@ const TemplatesPage: React.FC = () => {
                                 </Box>
                             </Box>
                         )}
+
+                        <Box sx={{ mb: 3 }}>
+                            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                                Assign to Category:
+                            </Typography>
+                            <Box sx={{ border: `1px solid ${theme.palette.divider}`, height: 250, overflow: 'hidden', borderRadius: 1 }}>
+                                <CategoryTree
+                                    type="TEMPLATE"
+                                    selectedCategoryId={uploadCategoryId ?? null}
+                                    onSelectCategory={(id) => setUploadCategoryId(id)}
+                                    refreshTrigger={treeRefreshTrigger}
+                                    onDataChange={() => setTreeRefreshTrigger(prev => prev + 1)}
+                                />
+                            </Box>
+                        </Box>
 
                         <FormControlLabel
                             control={

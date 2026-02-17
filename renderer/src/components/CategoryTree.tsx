@@ -45,6 +45,7 @@ interface CategoryTreeProps {
     onSelectCategory: (categoryId: string | null) => void;
     refreshTrigger: number;
     readOnly?: boolean;
+    onDataChange?: () => void;
 }
 
 // ─── Styled Components ───────────────────────────────────
@@ -74,6 +75,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
     onSelectCategory,
     refreshTrigger,
     readOnly = false,
+    onDataChange
 }) => {
     const theme = useTheme();
     const [tree, setTree] = useState<CategoryNode[]>([]);
@@ -150,6 +152,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
                 onSelectCategory(null);
             }
             loadTree();
+            if (onDataChange) onDataChange();
         } else {
             alert(result.error);
         }
@@ -169,6 +172,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
             if (targetCategory) {
                 setExpandedIds((prev) => [...prev, targetCategory.id]);
             }
+            if (onDataChange) onDataChange();
         } else {
             alert(result.error);
         }
@@ -181,6 +185,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
         if (result.success) {
             setRenameDialogOpen(false);
             loadTree();
+            if (onDataChange) onDataChange();
         } else {
             alert(result.error);
         }

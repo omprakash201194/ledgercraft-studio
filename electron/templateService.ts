@@ -1,13 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
+
 import { app } from 'electron';
 import { database } from './database';
 import { getCurrentUser } from './auth';
 import { logAction } from './auditService';
 import { createForm, generateFieldsFromTemplate } from './formService';
+import { mirrorCategoryHierarchy } from './categoryService';
+import { extractPlaceholders } from './templateUtils';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -83,16 +84,47 @@ export function uploadTemplate(fileBuffer: Buffer, originalName: string, autoCre
         // 5. Auto-create form if requested
         if (autoCreateForm && placeholders.length > 0) {
             try {
+                // 5a. Mirror Category Hierarchy
+                let formCategoryId: string | null = null;
+                if (categoryId) {
+                    formCategoryId = mirrorCategoryHierarchy(categoryId);
+                }
+
+                // 5b. Resolve Name Conflict in Target Category
+                const baseName = originalName.replace(/\.docx$/i, '');
+                let finalName = baseName;
+
+                const db = database.getConnection();
+                // Check if name exists in the target FORM category
+                const checkName = (nameToCheck: string) => {
+                    const stmt = db.prepare(`
+                        SELECT id FROM forms 
+                        WHERE name = ? 
+                        AND (category_id = ? OR (category_id IS NULL AND ? IS NULL)) 
+                        AND is_deleted = 0
+                    `);
+                    return !!stmt.get(nameToCheck, formCategoryId, formCategoryId);
+                };
+
+                if (checkName(finalName)) {
+                    finalName = `${baseName} (Auto)`;
+                    if (checkName(finalName)) {
+                        finalName = `${baseName} (Auto) ${new Date().getTime()}`;
+                    }
+                }
+
+                // 5c. Create Form
                 const fields = generateFieldsFromTemplate(template.id);
                 // createForm handles its own logging
                 createForm({
-                    name: originalName.replace(/\.docx$/i, ''),
+                    name: finalName,
                     template_id: template.id,
-                    category_id: categoryId || null,
+                    category_id: formCategoryId,
                     fields: fields
                 });
             } catch (err) {
                 console.error('[Template] Auto-create form failed:', err);
+                // We intentionally do NOT throw here, so template upload remains successful
             }
         }
 
@@ -116,31 +148,9 @@ export function uploadTemplate(fileBuffer: Buffer, originalName: string, autoCre
 /**
  * Extract unique {{placeholder}} keys from a .docx file buffer.
  */
-export function extractPlaceholders(fileBuffer: Buffer): string[] {
-    const zip = new PizZip(fileBuffer);
-    const doc = new Docxtemplater(zip, {
-        paragraphLoop: true,
-        linebreaks: true,
-        delimiters: { start: '{{', end: '}}' },
-    });
 
-    // Get full text from the document
-    const text = doc.getFullText();
 
-    // Extract all {{...}} placeholders using regex
-    const regex = /\{\{(.*?)\}\}/g;
-    const matches: string[] = [];
-    let match: RegExpExecArray | null;
 
-    while ((match = regex.exec(text)) !== null) {
-        const key = match[1].trim();
-        if (key && !matches.includes(key)) {
-            matches.push(key);
-        }
-    }
-
-    return matches;
-}
 
 /**
  * Get all templates with their placeholder counts.

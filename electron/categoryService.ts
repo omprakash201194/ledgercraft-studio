@@ -245,3 +245,42 @@ export function deleteForm(id: string): ServiceResult {
         return { success: false, error: String(e) };
     }
 }
+
+/**
+ * Mirrors a TEMPLATE category chain into the FORM category tree.
+ * Creates missing FORM categories as needed.
+ * Returns the ID of the final FORM category.
+ */
+export function mirrorCategoryHierarchy(templateCategoryId: string): string | null {
+    // 1. Get the full chain of the template category
+    const chain = getCategoryChain(templateCategoryId);
+    if (chain.length === 0) return null;
+
+    let currentFormParentId: string | null = null;
+
+    // 2. Iterate through the chain and ensure each level exists in FORM tree
+    for (const templateCat of chain) {
+        // Find existing FORM category with same name and parent
+        const db = database.getConnection();
+        const existingCat = db.prepare(`
+            SELECT id FROM categories 
+            WHERE type = 'FORM' 
+            AND name = ? 
+            AND (parent_id = ? OR (parent_id IS NULL AND ? IS NULL))
+        `).get(templateCat.name, currentFormParentId, currentFormParentId) as { id: string } | undefined;
+
+        if (existingCat) {
+            currentFormParentId = existingCat.id;
+        } else {
+            // Create new FORM category
+            const newCat = database.createCategory({
+                name: templateCat.name,
+                parent_id: currentFormParentId,
+                type: 'FORM'
+            });
+            currentFormParentId = newCat.id;
+        }
+    }
+
+    return currentFormParentId;
+}

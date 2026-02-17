@@ -248,7 +248,10 @@ declare global {
 
             // Categories
             getCategoryChain(categoryId: string): Promise<{ id: string; name: string }[]>;
+            getCategoryTree(type: 'TEMPLATE' | 'FORM'): Promise<CategoryNode[]>;
             createCategory(input: CreateCategoryInput): Promise<ServiceResult>;
+            renameCategory(id: string, name: string): Promise<ServiceResult>;
+            deleteCategory(id: string, type: 'TEMPLATE' | 'FORM'): Promise<ServiceResult>;
             moveItem(input: MoveItemInput): Promise<ServiceResult>;
 
             deleteTemplate: (id: string, force?: boolean) => Promise<ServiceResult & { usageCount?: number }>;
