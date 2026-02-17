@@ -213,6 +213,72 @@ class Database {
         updated_at TEXT NOT NULL,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       );
+
+      /* ─── Client Master Book ─── */
+      
+      CREATE TABLE IF NOT EXISTS client_categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        parent_id TEXT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS client_types (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS client_type_fields (
+        id TEXT PRIMARY KEY,
+        client_type_id TEXT NOT NULL,
+        label TEXT NOT NULL,
+        field_key TEXT NOT NULL,
+        data_type TEXT NOT NULL,
+        is_required INTEGER DEFAULT 0,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(client_type_id) REFERENCES client_types(id),
+        UNIQUE(client_type_id, field_key)
+      );
+
+      CREATE TABLE IF NOT EXISTS clients (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        client_type_id TEXT NOT NULL,
+        category_id TEXT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(client_type_id) REFERENCES client_types(id)
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);
+
+      CREATE TABLE IF NOT EXISTS client_field_values (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL,
+        field_id TEXT NOT NULL,
+        value TEXT,
+        FOREIGN KEY(client_id) REFERENCES clients(id),
+        FOREIGN KEY(field_id) REFERENCES client_type_fields(id)
+      );
+      
+      /* 
+         PAN Uniqueness Enforcement:
+         Ideally, we want: UNIQUE(value) WHERE field.field_key='pan' AND client.is_deleted=0.
+         
+         SQLite Partial Indexes can only filter on columns in the indexed table.
+         'client_field_values' does not contain 'field_key' or 'is_deleted'.
+         
+         Therefore, PAN uniqueness (per client_type, for non-deleted clients) 
+         MUST be enforced in the application layer (ClientService).
+         
+         Attempting a complex trigger-based solution is risky and complex to maintain here.
+         We defer this check to the insertion/update logic in the app.
+      */
     `);
 
     // ─── Migrations ──────────────────────────────────────
@@ -221,6 +287,9 @@ class Database {
     this.safeAddColumn('forms', 'is_deleted', 'INTEGER DEFAULT 0');
     this.safeAddColumn('reports', 'input_values', 'TEXT');
     this.safeAddColumn('form_fields', 'format_options', 'TEXT');
+
+    // Client Master Book migrations
+    this.safeAddColumn('reports', 'client_id', 'TEXT REFERENCES clients(id)');
   }
 
   private safeAddColumn(tableName: string, columnName: string, columnType: string): void {
