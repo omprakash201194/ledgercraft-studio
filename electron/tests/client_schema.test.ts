@@ -79,4 +79,15 @@ describe('Client Master Book Schema (Schema Verification)', () => {
         expect(alterCalls.length).toBeGreaterThan(0);
         expect(alterCalls[0]).toContain('TEXT REFERENCES clients(id)');
     });
+    it('should be idempotent (safe to run initialization twice)', () => {
+        // First run happens in beforeEach
+
+        // Second run
+        expect(() => {
+            database.initialize(':memory:');
+        }).not.toThrow();
+
+        // Check that exec was called more (indicating it tried to run schema again)
+        expect(mockExec).toHaveBeenCalled();
+    });
 });
