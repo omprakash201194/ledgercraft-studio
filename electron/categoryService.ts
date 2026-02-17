@@ -181,20 +181,28 @@ export function moveItem(input: MoveItemInput): MoveItemResult {
     }
 }
 
-export function deleteTemplate(id: string): ServiceResult {
+export function deleteTemplate(id: string, force: boolean = false): ServiceResult & { usageCount?: number } {
     try {
-        // Validation: Check usage by forms
-        if (database.isTemplateUsed(id)) {
-            return { success: false, error: 'Cannot delete template: It is used by one or more forms.' };
+        // Validation: Check usage by forms if not forced
+        const usageCount = database.getTemplateUsageCount(id);
+
+        if (!force && usageCount > 0) {
+            return { success: false, error: 'TEMPLATE_USED', usageCount };
         }
 
         // Get file path to delete file
         const template = database.getTemplateById(id);
         if (template && fs.existsSync(template.file_path)) {
-            fs.unlinkSync(template.file_path);
+            try {
+                fs.unlinkSync(template.file_path);
+            } catch (err) {
+                console.error(`[CategoryService] Failed to delete file: ${template.file_path}`, err);
+                // Continue with DB deletion even if file delete fails (orphaned file is better than broken DB state?)
+                // Or maybe strictly strict? Let's log and continue.
+            }
         }
 
-        database.deleteTemplate(id);
+        database.deleteTemplate(id, force);
 
         const currentUser = getCurrentUser();
         if (currentUser) {
@@ -202,7 +210,8 @@ export function deleteTemplate(id: string): ServiceResult {
                 userId: currentUser.id,
                 actionType: 'TEMPLATE_DELETE',
                 entityType: 'TEMPLATE',
-                entityId: id
+                entityId: id,
+                metadata: { force }
             });
         }
 

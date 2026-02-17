@@ -180,6 +180,33 @@ export function createUser(
     return { success: true, user: toSafeUser(user) };
 }
 
+export function resetUserPassword(targetUserId: string, newPassword: string): AuthResult {
+    // Only ADMIN can reset passwords
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+        return { success: false, error: 'Only administrators can reset passwords' };
+    }
+
+    const targetUser = database.getUserById(targetUserId);
+    if (!targetUser) {
+        return { success: false, error: 'User not found' };
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const password_hash = bcrypt.hashSync(newPassword, salt);
+
+    database.updateUserPassword(targetUserId, password_hash);
+
+    logAction({
+        userId: currentUser.id,
+        actionType: 'USER_PASSWORD_RESET',
+        entityType: 'USER',
+        entityId: targetUserId,
+        metadata: { targetUsername: targetUser.username }
+    });
+
+    return { success: true };
+}
+
 // ─── Bootstrap ───────────────────────────────────────────
 
 export function bootstrapAdmin(): void {

@@ -3,7 +3,7 @@ import fs from 'fs';
 import { login, logout, tryAutoLogin, getCurrentUser, createUser } from '../auth';
 import { database } from '../database';
 import { SafeUser } from '../auth';
-import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
+import { extractPlaceholders, uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
 import { createForm, getForms, getFormById, getFormFields, updateForm, generateFieldsFromTemplate, deleteForm, CreateFormInput, UpdateFormInput } from '../formService';
 import { generateReport, getReports, deleteReport, deleteReports, GenerateReportInput } from '../reportService';
 import { getAuditLogs, getAnalytics } from '../auditService';
@@ -53,8 +53,8 @@ export function registerIpcHandlers(): void {
         return moveItem(input);
     });
 
-    ipcMain.handle('template:delete', (_event, id: string) => {
-        return deleteTemplate(id);
+    ipcMain.handle('template:delete', (_event, id: string, force: boolean = false) => {
+        return deleteTemplate(id, force);
     });
 
     ipcMain.handle('form:delete', (_event, formId: string, deleteReports: boolean = false) => {
@@ -149,8 +149,16 @@ export function registerIpcHandlers(): void {
         return { success: true, users: safeUsers };
     });
 
+    ipcMain.handle('auth:reset-password', (_event, targetUserId: string, newPassword: string) => {
+        // dynamic import or move import to top if circular dependency issues arise, 
+        // but here we imported it effectively at the top of the file
+        const { resetUserPassword } = require('../auth');
+        return resetUserPassword(targetUserId, newPassword);
+    });
+
     // ─── Templates ───────────────────────────────────────
-    ipcMain.handle('template:upload', async (_event) => {
+    // Updated: Split into Pick/Analyze and Process
+    ipcMain.handle('template:pick-analyze', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
             title: 'Select Template',
             filters: [{ name: 'Word Documents', extensions: ['docx'] }],
@@ -158,15 +166,52 @@ export function registerIpcHandlers(): void {
         });
 
         if (canceled || filePaths.length === 0) {
-            return { success: false, error: 'No file selected' };
+            return { canceled: true };
         }
 
         try {
             const filePath = filePaths[0];
             const fileBuffer = fs.readFileSync(filePath);
             const originalName = filePath.split(/[\\/]/).pop() || 'template.docx';
+            const placeholders = extractPlaceholders(fileBuffer);
 
-            return uploadTemplate(fileBuffer, originalName);
+            return {
+                canceled: false,
+                filePath,
+                originalName,
+                placeholders,
+                placeholderCount: placeholders.length
+            };
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            return { canceled: false, error: `Analysis failed: ${message}` };
+        }
+    });
+
+    ipcMain.handle('template:process-upload', async (_event, filePath: string, ...args: any[]) => {
+        try {
+            if (!fs.existsSync(filePath)) {
+                return { success: false, error: 'File no longer exists' };
+            }
+            const fileBuffer = fs.readFileSync(filePath);
+            const originalName = filePath.split(/[\\/]/).pop() || 'template.docx';
+
+            let autoCreateForm = false;
+            let categoryId: string | null = null;
+
+            // Handle arguments: either (boolean, categoryId?) OR ({ autoCreateForm, categoryId })
+            if (args.length > 0) {
+                if (typeof args[0] === 'object' && args[0] !== null) {
+                    const options = args[0];
+                    autoCreateForm = !!options.autoCreateForm;
+                    categoryId = options.categoryId || null;
+                } else if (typeof args[0] === 'boolean') {
+                    autoCreateForm = args[0];
+                    categoryId = args[1] || null;
+                }
+            }
+
+            return uploadTemplate(fileBuffer, originalName, autoCreateForm, categoryId);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Unknown error';
             return { success: false, error: `Upload failed: ${message}` };
@@ -190,8 +235,8 @@ export function registerIpcHandlers(): void {
         return updateForm(input);
     });
 
-    ipcMain.handle('form:get-all', (_event, page: number = 1, limit: number = 10, categoryId?: string | null) => {
-        return database.getFormsWithDetails(page, limit, categoryId);
+    ipcMain.handle('form:get-all', (_event, page: number = 1, limit: number = 10, categoryId?: string | null, includeArchived: boolean = false) => {
+        return database.getFormsWithDetails(page, limit, categoryId, includeArchived);
     });
 
     ipcMain.handle('form:get-by-id', (_event, formId: string) => {

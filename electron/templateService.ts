@@ -7,6 +7,7 @@ import { app } from 'electron';
 import { database } from './database';
 import { getCurrentUser } from './auth';
 import { logAction } from './auditService';
+import { createForm, generateFieldsFromTemplate } from './formService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ export interface UploadResult {
  * Upload a .docx template file, save it to the templates directory,
  * extract placeholders, and store everything in the database.
  */
-export function uploadTemplate(fileBuffer: Buffer, originalName: string): UploadResult {
+export function uploadTemplate(fileBuffer: Buffer, originalName: string, autoCreateForm: boolean = false, categoryId?: string | null): UploadResult {
     // Auth check: only ADMIN
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== 'ADMIN') {
@@ -58,6 +59,7 @@ export function uploadTemplate(fileBuffer: Buffer, originalName: string): Upload
         const template = database.createTemplate({
             name: originalName,
             file_path: filePath,
+            category_id: categoryId,
         });
 
         // 4. Store placeholders in database (avoid duplicates)
@@ -76,6 +78,22 @@ export function uploadTemplate(fileBuffer: Buffer, originalName: string): Upload
                 entityId: template.id,
                 metadata: { name: originalName }
             });
+        }
+
+        // 5. Auto-create form if requested
+        if (autoCreateForm && placeholders.length > 0) {
+            try {
+                const fields = generateFieldsFromTemplate(template.id);
+                // createForm handles its own logging
+                createForm({
+                    name: originalName.replace(/\.docx$/i, ''),
+                    template_id: template.id,
+                    category_id: categoryId || null,
+                    fields: fields
+                });
+            } catch (err) {
+                console.error('[Template] Auto-create form failed:', err);
+            }
         }
 
         return {
@@ -98,7 +116,7 @@ export function uploadTemplate(fileBuffer: Buffer, originalName: string): Upload
 /**
  * Extract unique {{placeholder}} keys from a .docx file buffer.
  */
-function extractPlaceholders(fileBuffer: Buffer): string[] {
+export function extractPlaceholders(fileBuffer: Buffer): string[] {
     const zip = new PizZip(fileBuffer);
     const doc = new Docxtemplater(zip, {
         paragraphLoop: true,

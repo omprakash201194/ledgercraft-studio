@@ -144,6 +144,15 @@ export function deleteForm(formId: string, deleteReports: boolean = false): { su
                         console.error(`[FormService] Failed to delete report file ${report.file_path}`, e);
                     }
                 }
+
+                // Log the deletion for analytics
+                logAction({
+                    userId: currentUser.id,
+                    actionType: 'REPORT_DELETE',
+                    entityType: 'REPORT',
+                    entityId: report.id,
+                    metadata: { formId: formId, cascade: true }
+                });
             }
 
             // Now we can hard delete form (and reports will be CASCADE deleted in DB or we delete them manually)
@@ -183,8 +192,8 @@ export function deleteForm(formId: string, deleteReports: boolean = false): { su
 /**
  * Get all forms with template name and field count.
  */
-export function getForms() {
-    return database.getFormsWithDetails();
+export function getForms(page: number = 1, limit: number = 50) {
+    return database.getFormsWithDetails(page, limit);
 }
 
 /**

@@ -28,6 +28,15 @@ declare global {
         placeholder_count: number;
     }
 
+    interface AnalyzeTemplateResult {
+        canceled: boolean;
+        filePath?: string;
+        originalName?: string;
+        placeholders?: string[];
+        placeholderCount?: number;
+        error?: string;
+    }
+
     interface UploadTemplateResult {
         success: boolean;
         template?: {
@@ -222,38 +231,27 @@ declare global {
             getAllUsers: () => Promise<GetAllUsersResult>;
 
             // Templates
-            uploadTemplate(filePath?: string): Promise<UploadTemplateResult>;
+            pickTemplate: () => Promise<AnalyzeTemplateResult>;
+            processTemplateUpload: (filePath: string, autoCreateForm: boolean, categoryId?: string | null) => Promise<{ success: boolean; template?: TemplateRecord; error?: string }>;
             getTemplates(page?: number, limit?: number, categoryId?: string | null): Promise<{ templates: TemplateRecord[]; total: number }>;
             getTemplatePlaceholders: (templateId: string) => Promise<TemplatePlaceholder[]>;
 
             // Forms
             createForm(input: CreateFormInput): Promise<CreateFormResult>;
             updateForm(input: UpdateFormInput): Promise<FormRecord & { fields: FormFieldRecord[] }>;
-            getForms(page?: number, limit?: number, categoryId?: string | null): Promise<{ forms: (FormRecord & { template_name: string; field_count: number })[]; total: number }>;
-            getFormById(formId: string): Promise<FormRecord & { fields: FormFieldRecord[] }>;
+            getForms(page?: number, limit?: number, categoryId?: string | null, includeArchived?: boolean): Promise<{ forms: (FormRecord & { template_name: string; field_count: number })[]; total: number }>;
+            createForm(input: CreateFormInput): Promise<CreateFormResult>;
+            updateForm(input: UpdateFormInput): Promise<FormRecord & { fields: FormFieldRecord[] }>;
             getFormFields(formId: string): Promise<FormFieldRecord[]>;
-            generateFormFields(templateId: string): Promise<GeneratedField[]>;
-            getFormsWithHierarchy(): Promise<{ id: string; name: string; parent_id: string | null; type: 'CATEGORY' | 'FORM' }[]>;
-            getRecentForms(limit?: number): Promise<(FormRecord & { usage_count: number })[]>;
-            deleteForm: (id: string, deleteReports?: boolean) => Promise<{ success: boolean; error?: string }>;
-            getFormReportCount: (id: string) => Promise<number>;
+            deleteForm(formId: string, deleteReports: boolean): Promise<ServiceResult>;
+            getFormReportCount(formId: string): Promise<number>;
 
-            // Reports
-            generateReport: (input: GenerateReportInput) => Promise<GenerateReportResult>;
-            getReports(page?: number, limit?: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC'): Promise<{ reports: ReportRecord[]; total: number }>;
-            getReportById: (reportId: string) => Promise<ReportRecord>;
-            deleteReport: (reportId: string) => Promise<{ success: boolean; error?: string }>;
-            deleteReports: (reportIds: string[]) => Promise<{ success: boolean; deletedCount?: number; error?: string }>;
-            downloadReport: (filePath: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+            // Categories
+            getCategoryChain(categoryId: string): Promise<{ id: string; name: string }[]>;
+            createCategory(input: CreateCategoryInput): Promise<ServiceResult>;
+            moveItem(input: MoveItemInput): Promise<ServiceResult>;
 
-            // Categories & Lifecycle
-            getCategoryTree: (type: 'TEMPLATE' | 'FORM') => Promise<CategoryNode[]>;
-            getCategoryChain: (id: string) => Promise<{ id: string; name: string }[]>;
-            createCategory: (input: CreateCategoryInput) => Promise<ServiceResult>;
-            renameCategory: (id: string, newName: string) => Promise<ServiceResult>;
-            deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => Promise<ServiceResult>;
-            moveItem: (input: MoveItemInput) => Promise<ServiceResult>;
-            deleteTemplate: (id: string) => Promise<ServiceResult>;
+            deleteTemplate: (id: string, force?: boolean) => Promise<ServiceResult & { usageCount?: number }>;
 
             // Shell
             openFile: (filePath: string) => Promise<string>;
@@ -262,7 +260,9 @@ declare global {
             getAnalytics(): Promise<AnalyticsStats>;
 
             getUserPreferences(userId: string): Promise<UserPreferences>;
+            getUserPreferences(userId: string): Promise<UserPreferences>;
             updateUserPreferences(userId: string, prefs: Partial<UserPreferences>): Promise<UserPreferences>;
+            resetUserPassword(targetUserId: string, newPassword: string): Promise<ServiceResult>;
         };
     }
 }

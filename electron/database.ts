@@ -274,6 +274,12 @@ class Database {
     return stmt.all() as User[];
   }
 
+  updateUserPassword(id: string, password_hash: string): void {
+    const db = this.getConnection();
+    const stmt = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+    stmt.run(password_hash, id);
+  }
+
   // ─── Repository: Templates ───────────────────────────
 
   createTemplate(template: Omit<Template, 'id' | 'created_at'>): Template {
@@ -282,10 +288,10 @@ class Database {
     const created_at = new Date().toISOString();
 
     const stmt = db.prepare(`
-      INSERT INTO templates (id, name, file_path, created_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO templates (id, name, file_path, category_id, created_at)
+      VALUES (?, ?, ?, ?, ?)
     `);
-    stmt.run(id, template.name, template.file_path, created_at);
+    stmt.run(id, template.name, template.file_path, template.category_id || null, created_at);
 
     return { id, ...template, created_at };
   }
@@ -462,12 +468,16 @@ class Database {
     return (this.getFormById(id) as any)!; // simpler cast for now
   }
 
-  getFormsWithDetails(page: number = 1, limit: number = 10, categoryId?: string | null): { forms: (Form & { template_name: string; field_count: number })[]; total: number } {
+  getFormsWithDetails(page: number, limit: number, categoryId?: string | null, includeArchived: boolean = false): { forms: (Form & { template_name: string; field_count: number })[]; total: number } {
     const db = this.getConnection();
     const offset = (page - 1) * limit;
 
-    let whereClause = 'WHERE f.is_deleted = 0'; // Only show non-deleted forms
+    let whereClause = 'WHERE 1=1';
     const params: any[] = [];
+
+    if (!includeArchived) {
+      whereClause += ' AND f.is_deleted = 0';
+    }
 
     if (categoryId !== undefined) {
       if (categoryId === null) {
@@ -688,6 +698,13 @@ class Database {
     return stmt.all(type) as Category[];
   }
 
+  getTemplateUsageCount(templateId: string): number {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM forms WHERE template_id = ?'); // Counts BOTH active and archived
+    const result = stmt.get(templateId) as { count: number };
+    return result.count;
+  }
+
   getCategoryById(id: string): Category | undefined {
     const db = this.getConnection();
     const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
@@ -738,19 +755,39 @@ class Database {
 
   // Check if template is used by any form
   isTemplateUsed(templateId: string): boolean {
-    const db = this.getConnection();
-    const stmt = db.prepare('SELECT COUNT(*) as count FROM forms WHERE template_id = ?');
-    const result = stmt.get(templateId) as { count: number };
-    return result.count > 0;
+    return this.getTemplateUsageCount(templateId) > 0;
   }
 
-  deleteTemplate(id: string): void {
+  deleteTemplate(id: string, force: boolean = false): void {
     const db = this.getConnection();
-    // Also delete placeholders
+
     const deletePlaceholders = db.prepare('DELETE FROM template_placeholders WHERE template_id = ?');
     const deleteTemplate = db.prepare('DELETE FROM templates WHERE id = ?');
 
+    const deleteForms = db.prepare('DELETE FROM forms WHERE template_id = ?');
+    // We also need to delete form fields and reports if we are force deleting forms
+    // But for now let's assume 'forms' delete triggers need to be handled or we do it manually.
+    // SQLite doesn't cascade by default unless configured. Let's do manual cleanup safely.
+
+    // To properly delete forms, we should probably rely on a more robust method if we had one, 
+    // but here we'll do:
+    // 1. Get all form IDs
+    // 2. Delete reports for those forms
+    // 3. Delete form fields
+    // 4. Delete forms
+
+    const getFormIds = db.prepare('SELECT id FROM forms WHERE template_id = ?');
+
     db.transaction(() => {
+      if (force) {
+        const forms = getFormIds.all(id) as { id: string }[];
+        for (const form of forms) {
+          db.prepare('DELETE FROM reports WHERE form_id = ?').run(form.id);
+          db.prepare('DELETE FROM form_fields WHERE form_id = ?').run(form.id);
+        }
+        deleteForms.run(id);
+      }
+
       deletePlaceholders.run(id);
       deleteTemplate.run(id);
     })();

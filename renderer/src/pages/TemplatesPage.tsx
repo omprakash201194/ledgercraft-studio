@@ -33,6 +33,8 @@ import {
     Breadcrumbs,
     Link,
     TablePagination,
+    Checkbox,
+    FormControlLabel,
 } from '@mui/material';
 import {
     CloudUpload as UploadIcon,
@@ -69,6 +71,7 @@ const TemplatesPage: React.FC = () => {
     const [filteredTemplates, setFilteredTemplates] = useState<TemplateRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [autoCreateForm, setAutoCreateForm] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [dateFormat, setDateFormat] = useState('DD-MM-YYYY');
@@ -147,36 +150,76 @@ const TemplatesPage: React.FC = () => {
     }, [templates, selectedCategoryId]);
     */
 
-    const handleUpload = async () => {
+    // Upload Dialog State
+    const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+    const [analyzedTemplate, setAnalyzedTemplate] = useState<AnalyzeTemplateResult | null>(null);
+
+    const handleUploadClick = async () => {
         setError('');
         setSuccess('');
-        setUploading(true);
 
         try {
-            const result = await window.api.uploadTemplate();
+            const result = await window.api.pickTemplate();
+            if (result.canceled) return;
+
+            if (result.error) {
+                setError(result.error);
+                return;
+            }
+
+            setAnalyzedTemplate(result);
+            setUploadDialogOpen(true);
+            // Default auto-create to false when opening dialog
+            setAutoCreateForm(false);
+        } catch (err) {
+            console.error(err);
+            setError('Failed to analyze template');
+        }
+    };
+
+    const handleConfirmUpload = async () => {
+        if (!analyzedTemplate?.filePath) return;
+
+        setUploadDialogOpen(false);
+        setUploading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const result = await window.api.processTemplateUpload(analyzedTemplate.filePath, autoCreateForm, selectedCategoryId);
             if (result.success && result.template) {
                 setSuccess(
-                    `Template "${result.template.name}" uploaded. Please refresh to see changes or move it.`
+                    autoCreateForm
+                        ? 'Template uploaded and form auto-created successfully.'
+                        : 'Template uploaded successfully.'
                 );
-                // If we uploaded, refresh everything
                 loadTemplates();
-                // Optionally move to current category if selected?
+                // Optionally move to current category if selected - NOW HANDLED BY BACKEND
+                /*
                 if (selectedCategoryId && result.template) {
-                    await window.api.moveItem({
+                     await window.api.moveItem({
                         itemId: result.template.id,
                         targetCategoryId: selectedCategoryId,
                         type: 'TEMPLATE',
                     });
                     loadTemplates();
                 }
-            } else if (result.error && result.error !== 'No file selected') {
-                setError(result.error);
+                */
+            } else {
+                setError(result.error || 'Upload failed');
             }
-        } catch {
+        } catch (err) {
+            console.error(err);
             setError('Failed to upload template');
         } finally {
             setUploading(false);
+            setAnalyzedTemplate(null);
         }
+    };
+
+    const handleCloseUploadDialog = () => {
+        setUploadDialogOpen(false);
+        setAnalyzedTemplate(null);
     };
 
     const handleViewPlaceholders = async (template: TemplateRecord) => {
@@ -238,7 +281,9 @@ const TemplatesPage: React.FC = () => {
     };
 
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [cascadeDeleteDialogOpen, setCascadeDeleteDialogOpen] = useState(false);
     const [templateToDelete, setTemplateToDelete] = useState<TemplateRecord | null>(null);
+    const [usageCount, setUsageCount] = useState<number>(0);
 
     const handleDeleteClick = () => {
         if (!menuTarget) return;
@@ -251,19 +296,47 @@ const TemplatesPage: React.FC = () => {
         if (!templateToDelete) return;
 
         try {
-            const result = await window.api.deleteTemplate(templateToDelete.id);
+            const result = await window.api.deleteTemplate(templateToDelete.id, false);
             if (result.success) {
                 loadTemplates();
                 setSuccess(`Template "${templateToDelete.name}" deleted`);
+                setDeleteDialogOpen(false);
+                setTemplateToDelete(null);
+            } else if (result.error === 'TEMPLATE_USED' && result.usageCount) {
+                setUsageCount(result.usageCount);
+                setDeleteDialogOpen(false);
+                setCascadeDeleteDialogOpen(true);
+            } else {
+                setError(result.error || 'Failed to delete template');
+                setDeleteDialogOpen(false);
+                setTemplateToDelete(null);
+            }
+        } catch (err) {
+            console.error(err);
+            setError('Failed to delete template');
+            setDeleteDialogOpen(false);
+            setTemplateToDelete(null);
+        }
+    };
+
+    const handleConfirmCascadeDelete = async () => {
+        if (!templateToDelete) return;
+
+        try {
+            const result = await window.api.deleteTemplate(templateToDelete.id, true);
+            if (result.success) {
+                loadTemplates();
+                setSuccess(`Template "${templateToDelete.name}" and ${usageCount} associated forms deleted`);
             } else {
                 setError(result.error || 'Failed to delete template');
             }
         } catch (err) {
             console.error(err);
-            setError('Failed to delete template');
+            setError('Failed to force delete template');
         } finally {
-            setDeleteDialogOpen(false);
+            setCascadeDeleteDialogOpen(false);
             setTemplateToDelete(null);
+            setUsageCount(0);
         }
     };
 
@@ -272,26 +345,35 @@ const TemplatesPage: React.FC = () => {
         setTemplateToDelete(null);
     };
 
+    const handleCloseCascadeDeleteDialog = () => {
+        setCascadeDeleteDialogOpen(false);
+        setTemplateToDelete(null);
+        setUsageCount(0);
+    };
 
     return (
         <Fade in timeout={500}>
             <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h5">Templates</Typography>
-                    <Button
-                        variant="contained"
-                        startIcon={uploading ? <CircularProgress size={18} color="inherit" /> : <UploadIcon />}
-                        onClick={handleUpload}
-                        disabled={uploading}
-                    >
-                        {uploading ? 'Uploading...' : 'Upload Template'}
-                    </Button>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {/* Inline checkbox removed */}
+                        <Button
+                            variant="contained"
+                            startIcon={uploading ? <CircularProgress size={18} color="inherit" /> : <UploadIcon />}
+                            onClick={handleUploadClick}
+                            disabled={uploading}
+                        >
+                            {uploading ? 'Uploading...' : 'Upload Template'}
+                        </Button>
+                    </Box>
                 </Box>
 
                 {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
                 {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
                 <Grid container spacing={2} sx={{ flexGrow: 1, minHeight: 0 }}>
+                    {/* ... (Grid items same as before) ... */}
                     {/* Left Panel: Category Tree */}
                     <Grid item xs={12} md={3} sx={{ height: '100%' }}>
                         <CategoryTree
@@ -313,7 +395,6 @@ const TemplatesPage: React.FC = () => {
                                 flexDirection: 'column',
                             }}
                         >
-
                             {/* Breadcrumbs */}
                             <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, backgroundColor: theme.palette.action.hover }}>
                                 <Breadcrumbs aria-label="breadcrumb">
@@ -426,9 +507,67 @@ const TemplatesPage: React.FC = () => {
                     </Grid>
                 </Grid>
 
+                {/* Upload Confirmation Dialog */}
+                <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="sm" fullWidth>
+                    <DialogTitle>Confirm Upload</DialogTitle>
+                    <DialogContent dividers>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="subtitle2" color="text.secondary">File Name</Typography>
+                            <Typography variant="body1">{analyzedTemplate?.originalName}</Typography>
+                        </Box>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="subtitle2" color="text.secondary">Placeholders Found</Typography>
+                            <Chip
+                                label={analyzedTemplate?.placeholderCount || 0}
+                                size="small"
+                                color={(analyzedTemplate?.placeholderCount || 0) > 0 ? 'success' : 'warning'}
+                                sx={{ mt: 0.5 }}
+                            />
+                        </Box>
+                        {analyzedTemplate?.placeholders && analyzedTemplate.placeholders.length > 0 && (
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                                    Detected Placeholders:
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {analyzedTemplate.placeholders.slice(0, 10).map((p) => (
+                                        <Chip key={p} label={p} size="small" variant="outlined" style={{ fontSize: '0.7rem' }} />
+                                    ))}
+                                    {analyzedTemplate.placeholders.length > 10 && (
+                                        <Chip label={`+${analyzedTemplate.placeholders.length - 10} more`} size="small" variant="outlined" style={{ fontSize: '0.7rem' }} />
+                                    )}
+                                </Box>
+                            </Box>
+                        )}
+
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={autoCreateForm}
+                                    onChange={(e) => setAutoCreateForm(e.target.checked)}
+                                    color="primary"
+                                />
+                            }
+                            label={
+                                <Box>
+                                    <Typography variant="body2">Auto-create form from this template</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Generates a corresponding form with fields for each placeholder.
+                                    </Typography>
+                                </Box>
+                            }
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={handleCloseUploadDialog}>Cancel</Button>
+                        <Button onClick={handleConfirmUpload} variant="contained" disabled={uploading}>
+                            {uploading ? 'Uploading...' : 'Confirm & Upload'}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
                 {/* Placeholders Dialog */}
                 <Dialog open={!!selectedTemplate && !loadingPlaceholders && !anchorEl && !moveDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-                    {/* Reuse existing dialog content... simplifying for this edit */}
                     <DialogTitle>{selectedTemplate?.name} Placeholders</DialogTitle>
                     <DialogContent dividers>
                         <List dense>
@@ -499,6 +638,35 @@ const TemplatesPage: React.FC = () => {
                         </Button>
                         <Button onClick={handleConfirmDelete} color="error" variant="contained" autoFocus>
                             Delete
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                {/* Cascade Delete Dialog */}
+                <Dialog
+                    open={cascadeDeleteDialogOpen}
+                    onClose={handleCloseCascadeDeleteDialog}
+                    aria-labelledby="cascade-delete-dialog-title"
+                    aria-describedby="cascade-delete-dialog-description"
+                >
+                    <DialogTitle id="cascade-delete-dialog-title">
+                        Template is in use
+                    </DialogTitle>
+                    <DialogContent>
+                        <DialogContentText id="cascade-delete-dialog-description">
+                            This template is used by <strong>{usageCount}</strong> forms (including archived ones).
+                            <br /><br />
+                            Deleting this template will also <strong>permanently delete all associated forms and their reports.</strong>
+                            <br /><br />
+                            Are you sure you want to proceed?
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={handleCloseCascadeDeleteDialog} color="primary">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleConfirmCascadeDelete} color="error" variant="contained" autoFocus>
+                            Delete Everything
                         </Button>
                     </DialogActions>
                 </Dialog>

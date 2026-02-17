@@ -18,16 +18,19 @@ contextBridge.exposeInMainWorld('api', {
     getCurrentUser: () => ipcRenderer.invoke('auth:get-current-user'),
     createUser: (username: string, password: string, role: string) => ipcRenderer.invoke('auth:create-user', username, password, role),
     getAllUsers: () => ipcRenderer.invoke('auth:get-all-users'),
+    resetUserPassword: (targetUserId: string, newPassword: string) => ipcRenderer.invoke('auth:reset-password', targetUserId, newPassword),
 
     // Templates
-    uploadTemplate: () => ipcRenderer.invoke('template:upload'),
+    // uploadTemplate removed in favor of split flow
+    pickTemplate: () => ipcRenderer.invoke('template:pick-analyze'),
+    processTemplateUpload: (filePath: string, autoCreateForm: boolean, categoryId?: string | null) => ipcRenderer.invoke('template:process-upload', filePath, autoCreateForm, categoryId),
     getTemplates: (page?: number, limit?: number, categoryId?: string | null) => ipcRenderer.invoke('template:get-all', page, limit, categoryId),
     getTemplatePlaceholders: (templateId: string) => ipcRenderer.invoke('template:get-placeholders', templateId),
 
     // Forms
     createForm: (formData: unknown) => ipcRenderer.invoke('form:create', formData),
     updateForm: (input: unknown) => ipcRenderer.invoke('form:update', input),
-    getForms: (page?: number, limit?: number, categoryId?: string | null) => ipcRenderer.invoke('form:get-all', page, limit, categoryId),
+    getForms: (page?: number, limit?: number, categoryId?: string | null, includeArchived?: boolean) => ipcRenderer.invoke('form:get-all', page, limit, categoryId, includeArchived),
     getFormById: (formId: string) => ipcRenderer.invoke('form:get-by-id', formId),
     getFormFields: (formId: string) => ipcRenderer.invoke('form:get-fields', formId),
     generateFormFields: (templateId: string) => ipcRenderer.invoke('form:generate-fields', templateId),
@@ -49,7 +52,7 @@ contextBridge.exposeInMainWorld('api', {
     renameCategory: (id: string, newName: string) => ipcRenderer.invoke('category:rename', id, newName),
     deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => ipcRenderer.invoke('category:delete', id, type),
     moveItem: (input: unknown) => ipcRenderer.invoke('item:move', input),
-    deleteTemplate: (id: string) => ipcRenderer.invoke('template:delete', id),
+    deleteTemplate: (id: string, force?: boolean) => ipcRenderer.invoke('template:delete', id, force),
     deleteForm: (id: string, deleteReports?: boolean) => ipcRenderer.invoke('form:delete', id, deleteReports),
     getFormReportCount: (id: string) => ipcRenderer.invoke('form:get-report-count', id),
 
