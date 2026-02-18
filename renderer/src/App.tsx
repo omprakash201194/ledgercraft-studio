@@ -10,6 +10,7 @@ import TemplatesPage from './pages/TemplatesPage';
 import FormsPage from './pages/FormsPage';
 import GenerateReportPage from './pages/GenerateReportPage';
 import ReportsPage from './pages/ReportsPage';
+import ClientsPage from './pages/ClientsPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import SettingsPage from './pages/SettingsPage';
 import AuditPage from './pages/AuditPage';
@@ -102,6 +103,7 @@ const App: React.FC = () => {
                             <Route path="forms" element={<FormsPage />} />
                             <Route path="generate-report" element={<GenerateReportPage />} />
                             <Route path="reports" element={<ReportsPage />} />
+                            <Route path="clients" element={<ClientsPage />} />
                             <Route path="users" element={<UsersPage />} />
                             <Route path="settings" element={<SettingsPage />} />
 
