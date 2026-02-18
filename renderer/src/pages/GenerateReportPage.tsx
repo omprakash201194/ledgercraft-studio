@@ -27,7 +27,8 @@ import {
     ListItemIcon,
     Breadcrumbs,
     Link,
-    Divider
+    Divider,
+    Autocomplete
 } from '@mui/material';
 import {
     Description as ReportIcon,
@@ -276,6 +277,92 @@ const GenerateReportPage: React.FC = () => {
         setValues((prev) => ({ ...prev, [key]: val }));
     };
 
+    // ─── Client Selection Logic ─────────────────────────
+    const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+    const [clientSearchQuery, setClientSearchQuery] = useState('');
+    const [clientOptions, setClientOptions] = useState<{ id: string; name: string }[]>([]);
+    const [loadingClients, setLoadingClients] = useState(false);
+    const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
+
+    // Initial Load for Query Param
+    useEffect(() => {
+        const initialClientId = queryParams.get('clientId');
+        if (initialClientId) {
+            handleSelectClient(initialClientId);
+        }
+    }, [initialReportId, initialFormId]); // Run once mostly, or when query params change
+
+    // Search Clients
+    useEffect(() => {
+        const fetchClients = async () => {
+            setLoadingClients(true);
+            try {
+                // If query is empty, maybe fetch recent? or empty?
+                // The prompt says "Support instant search".
+                // If empty, we might want to show some default or nothing.
+                // Let's search for '' to get some default list if API supports it, or wait for input.
+                // existing searchClients returns empty for empty string.
+                if (!clientSearchQuery) {
+                    setClientOptions([]);
+                    return;
+                }
+                const results = await window.api.searchClients(clientSearchQuery);
+                setClientOptions(results);
+            } catch (error) {
+                console.error('Failed to search clients', error);
+            } finally {
+                setLoadingClients(false);
+            }
+        };
+
+        const timeout = setTimeout(fetchClients, 300);
+        return () => clearTimeout(timeout);
+    }, [clientSearchQuery]);
+
+    const handleSelectClient = async (clientId: string | null) => {
+        if (!clientId) {
+            setSelectedClientId(null);
+            setSelectedClient(null);
+            return;
+        }
+
+        try {
+            const client = await window.api.getClientById(clientId);
+            if (client) {
+                setSelectedClientId(client.id);
+                setSelectedClient({ id: client.id, name: client.name });
+
+                // Prefill Logic
+                if (fields.length > 0) {
+                    setValues(prev => {
+                        const newValues = { ...prev };
+                        let changed = false;
+
+                        for (const field of fields) {
+                            const val = newValues[field.field_key];
+                            // Check if empty
+                            const isEmpty = val === '' || val === null || val === undefined || val === false;
+
+                            if (isEmpty && client.field_values && client.field_values[field.field_key]) {
+                                newValues[field.field_key] = client.field_values[field.field_key];
+                                changed = true;
+                            }
+                        }
+
+                        if (changed) {
+                            setSnackbar({ open: true, message: `Prefilled from ${client.name} (kept existing values)` });
+                        }
+                        return newValues;
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch client details', error);
+            setSnackbar({ open: true, message: 'Failed to load client details' });
+        }
+    };
+
+
     // ─── Generate Report ─────────────────────────────────
     const handleGenerate = async () => {
         if (!selectedFormId) return;
@@ -297,6 +384,7 @@ const GenerateReportPage: React.FC = () => {
             const result = await window.api.generateReport({
                 form_id: selectedFormId,
                 values,
+                client_id: selectedClientId || undefined
             });
 
             if (result.success && result.report) {
@@ -335,6 +423,38 @@ const GenerateReportPage: React.FC = () => {
     };
 
     // ─── Render Components ───────────────────────────────
+    // Render Field
+    const renderField = (field: FormFieldRecord) => {
+        const val = values[field.field_key];
+        const isRequired = field.required === 1;
+
+        switch (field.data_type) {
+            case 'text':
+                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} fullWidth required={isRequired} sx={{ mb: 2 }} />;
+            case 'number':
+                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} type="number" fullWidth required={isRequired} sx={{ mb: 2 }} />;
+            case 'date':
+                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} type="date" fullWidth required={isRequired} InputLabelProps={{ shrink: true }} sx={{ mb: 2 }} />;
+            case 'currency':
+                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} type="number" fullWidth required={isRequired} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} sx={{ mb: 2 }} />;
+            case 'dropdown': {
+                let options: string[] = [];
+                try { if (field.options_json) options = JSON.parse(field.options_json); } catch { }
+                return (
+                    <TextField key={field.id} select label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} fullWidth required={isRequired} sx={{ mb: 2 }}>
+                        <MenuItem value=""><em>Select...</em></MenuItem>
+                        {options.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                    </TextField>
+                );
+            }
+            case 'checkbox':
+                return <FormControlLabel key={field.id} control={<Checkbox checked={!!val} onChange={(e) => updateValue(field.field_key, e.target.checked)} />} label={field.label} sx={{ mb: 2, display: 'block' }} />;
+            case 'multiline':
+                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} multiline minRows={3} fullWidth required={isRequired} sx={{ mb: 2 }} />;
+            default:
+                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} fullWidth required={isRequired} sx={{ mb: 2 }} />;
+        }
+    };
 
     // Recursive Tree Item Renderer
     const renderTree = (node: HierarchyNode) => (
@@ -376,38 +496,7 @@ const GenerateReportPage: React.FC = () => {
         </TreeItem>
     );
 
-    // Render Field
-    const renderField = (field: FormFieldRecord) => {
-        const val = values[field.field_key];
-        const isRequired = field.required === 1;
-
-        switch (field.data_type) {
-            case 'text':
-                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} fullWidth required={isRequired} sx={{ mb: 2 }} />;
-            case 'number':
-                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} type="number" fullWidth required={isRequired} sx={{ mb: 2 }} />;
-            case 'date':
-                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} type="date" fullWidth required={isRequired} InputLabelProps={{ shrink: true }} sx={{ mb: 2 }} />;
-            case 'currency':
-                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} type="number" fullWidth required={isRequired} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} sx={{ mb: 2 }} />;
-            case 'dropdown': {
-                let options: string[] = [];
-                try { if (field.options_json) options = JSON.parse(field.options_json); } catch { }
-                return (
-                    <TextField key={field.id} select label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} fullWidth required={isRequired} sx={{ mb: 2 }}>
-                        <MenuItem value=""><em>Select...</em></MenuItem>
-                        {options.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                    </TextField>
-                );
-            }
-            case 'checkbox':
-                return <FormControlLabel key={field.id} control={<Checkbox checked={!!val} onChange={(e) => updateValue(field.field_key, e.target.checked)} />} label={field.label} sx={{ mb: 2, display: 'block' }} />;
-            case 'multiline':
-                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} multiline minRows={3} fullWidth required={isRequired} sx={{ mb: 2 }} />;
-            default:
-                return <TextField key={field.id} label={field.label} value={val ?? ''} onChange={(e) => updateValue(field.field_key, e.target.value)} fullWidth required={isRequired} sx={{ mb: 2 }} />;
-        }
-    };
+    // ... (Tree Rendering) ...
 
     return (
         <Fade in timeout={500}>
@@ -521,6 +610,48 @@ const GenerateReportPage: React.FC = () => {
                                     </Box>
 
                                     <Divider sx={{ mb: 3 }} />
+
+                                    {/* Client Selector */}
+                                    <Box sx={{ mb: 4, p: 2, bgcolor: alpha(theme.palette.primary.main, 0.03), borderRadius: 2, border: `1px dashed ${theme.palette.divider}` }}>
+                                        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', fontWeight: 600 }}>
+                                            Prefill from Client (Optional)
+                                        </Typography>
+                                        <Autocomplete
+                                            id="client-select"
+                                            options={clientOptions}
+                                            getOptionLabel={(option) => option.name}
+                                            value={selectedClient}
+                                            onChange={(_, newValue) => handleSelectClient(newValue ? newValue.id : null)}
+                                            onInputChange={(_, newInputValue) => setClientSearchQuery(newInputValue)}
+                                            loading={loadingClients}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    label="Search Client"
+                                                    placeholder="Type name, PAN, etc..."
+                                                    fullWidth
+                                                    InputProps={{
+                                                        ...params.InputProps,
+                                                        endAdornment: (
+                                                            <React.Fragment>
+                                                                {loadingClients ? <CircularProgress color="inherit" size={20} /> : null}
+                                                                {params.InputProps.endAdornment}
+                                                            </React.Fragment>
+                                                        ),
+                                                    }}
+                                                />
+                                            )}
+                                            renderOption={(props, option) => (
+                                                <li {...props} key={option.id}>
+                                                    <Box>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{option.name}</Typography>
+                                                        {/* We could show extra info here if available in search results */}
+                                                    </Box>
+                                                </li>
+                                            )}
+                                        />
+                                    </Box>
 
                                     {loadingFields ? (
                                         <Box sx={{ textAlign: 'center', py: 5 }}>

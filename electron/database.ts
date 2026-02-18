@@ -61,6 +61,7 @@ export interface Report {
   file_path: string;
   generated_at: string;
   input_values?: string; // JSON string
+  client_id?: string;
 }
 
 // ─── Database Class ──────────────────────────────────────
@@ -284,6 +285,7 @@ class Database {
     // ─── Migrations ──────────────────────────────────────
     this.safeAddColumn('templates', 'category_id', 'TEXT');
     this.safeAddColumn('forms', 'category_id', 'TEXT');
+    this.safeAddColumn('reports', 'client_id', 'TEXT REFERENCES clients(id)'); // Added client_id migration
     this.safeAddColumn('forms', 'is_deleted', 'INTEGER DEFAULT 0');
     this.safeAddColumn('reports', 'input_values', 'TEXT');
     this.safeAddColumn('form_fields', 'format_options', 'TEXT');
@@ -643,10 +645,10 @@ class Database {
     const generated_at = new Date().toISOString();
 
     const stmt = db.prepare(`
-      INSERT INTO reports (id, form_id, generated_by, file_path, generated_at, input_values)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO reports (id, form_id, generated_by, file_path, generated_at, input_values, client_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, report.form_id, report.generated_by, report.file_path, generated_at, report.input_values || null);
+    stmt.run(id, report.form_id, report.generated_by, report.file_path, generated_at, report.input_values || null, report.client_id || null);
 
     return { id, ...report, generated_at };
   }

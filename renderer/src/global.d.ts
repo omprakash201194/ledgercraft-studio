@@ -133,6 +133,7 @@ declare global {
     interface GenerateReportInput {
         form_id: string;
         values: Record<string, string | number | boolean>;
+        client_id?: string;
     }
 
     interface GenerateReportResult {
@@ -263,9 +264,36 @@ declare global {
             getAnalytics(): Promise<AnalyticsStats>;
 
             getUserPreferences(userId: string): Promise<UserPreferences>;
-            getUserPreferences(userId: string): Promise<UserPreferences>;
             updateUserPreferences(userId: string, prefs: Partial<UserPreferences>): Promise<UserPreferences>;
             resetUserPassword(targetUserId: string, newPassword: string): Promise<ServiceResult>;
+
+            // Clients
+            searchClients(query: string): Promise<Client[]>;
+            getClientById(clientId: string): Promise<Client | null>;
+
+            // Missing Form Methods
+            getFormsWithHierarchy(): Promise<any[]>;
+            getRecentForms(limit?: number): Promise<FormRecord[]>;
+
+            // Missing Report Methods
+            generateReport(input: GenerateReportInput): Promise<GenerateReportResult>;
+            getReports(page?: number, limit?: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC'): Promise<{ reports: ReportRecord[]; total: number }>;
+
+            getReportById(reportId: string): Promise<ReportRecord | null>;
+            deleteReport(reportId: string): Promise<ServiceResult>;
+            deleteReports(reportIds: string[]): Promise<ServiceResult>;
+            downloadReport(filePath: string): Promise<{ canceled: boolean; filePath?: string; error?: string }>;
         };
+    }
+
+    interface Client {
+        id: string;
+        name: string;
+        client_type_id: string;
+        category_id: string | null;
+        is_deleted: number;
+        created_at: string;
+        updated_at: string;
+        field_values?: Record<string, string>;
     }
 }

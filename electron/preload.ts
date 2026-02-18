@@ -63,4 +63,8 @@ contextBridge.exposeInMainWorld('api', {
     getAnalytics: () => ipcRenderer.invoke('audit:get-analytics'),
     getUserPreferences: (userId: string) => ipcRenderer.invoke('prefs:get', userId),
     updateUserPreferences: (userId: string, prefs: any) => ipcRenderer.invoke('prefs:update', userId, prefs),
+
+    // Clients
+    searchClients: (query: string) => ipcRenderer.invoke('client:search', query),
+    getClientById: (clientId: string) => ipcRenderer.invoke('client:get-by-id', clientId),
 });
