@@ -101,6 +101,11 @@ const ClientsPage: React.FC = () => {
     const [newClientName, setNewClientName] = useState('');
     const [selectedClientTypeId, setSelectedClientTypeId] = useState('');
 
+    // Dynamic Fields State
+    const [typeFields, setTypeFields] = useState<ClientTypeField[]>([]);
+    const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+    const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
+
     useEffect(() => {
         const loadClientTypes = async () => {
             try {
@@ -113,9 +118,35 @@ const ClientsPage: React.FC = () => {
         loadClientTypes();
     }, []);
 
+    // Fetch fields when Type changes
+    useEffect(() => {
+        if (!selectedClientTypeId) {
+            setTypeFields([]);
+            setFieldValues({});
+            setFieldErrors({});
+            return;
+        }
+
+        const loadFields = async () => {
+            try {
+                const fields = await window.api.getClientTypeFields(selectedClientTypeId);
+                setTypeFields(fields);
+                // Reset values when type changes
+                setFieldValues({});
+                setFieldErrors({});
+            } catch (err) {
+                console.error('Failed to load type fields', err);
+            }
+        };
+        loadFields();
+    }, [selectedClientTypeId]);
+
     const handleCreateClientClick = () => {
         setNewClientName('');
         setSelectedClientTypeId('');
+        setTypeFields([]);
+        setFieldValues({});
+        setFieldErrors({});
         setOpenDialog(true);
     };
 
@@ -123,18 +154,85 @@ const ClientsPage: React.FC = () => {
         setOpenDialog(false);
     };
 
-    const handleNext = () => {
-        // Placeholder for next step (dynamic fields)
-        console.log('Next clicked. Client Type ID stored:', selectedClientTypeId);
-        // We do not implement dynamic fields yet per instructions.
-        // For now, we can just close the dialog or keep it open.
-        // Instructions say "Store selected client_type_id in state". Done via state variable.
-        // "Return only modified ClientsPage file"
-
-        // Let's just alert for now so user knows it worked
-        alert(`Next step would show fields for type: ${selectedClientTypeId}`);
-        setOpenDialog(false);
+    const handleFieldChange = (fieldKey: string, value: string) => {
+        setFieldValues(prev => ({ ...prev, [fieldKey]: value }));
+        // Clear error if exists
+        if (fieldErrors[fieldKey]) {
+            setFieldErrors(prev => ({ ...prev, [fieldKey]: false }));
+        }
     };
+
+    const handleSave = () => {
+        // Validation
+        const newErrors: Record<string, boolean> = {};
+        let hasError = false;
+
+        if (!newClientName.trim()) {
+            hasError = true;
+        }
+
+        typeFields.forEach(field => {
+            if (field.is_required) {
+                const val = fieldValues[field.field_key];
+                if (!val || val.toString().trim() === '') {
+                    newErrors[field.field_key] = true;
+                    hasError = true;
+                }
+            }
+        });
+
+        if (hasError) {
+            setFieldErrors(newErrors);
+            return;
+        }
+
+        console.log('Save clicked. Data:', {
+            name: newClientName,
+            typeId: selectedClientTypeId,
+            values: fieldValues
+        });
+
+        alert(`Would satisfy: Save client with ${Object.keys(fieldValues).length} dynamic fields.`);
+        setOpenDialog(false);
+        // "Do NOT save yet" -> logic stops here.
+    };
+
+    const renderField = (field: ClientTypeField) => {
+        const isError = !!fieldErrors[field.field_key];
+
+        if (field.data_type === 'date') {
+            return (
+                <TextField
+                    key={field.id}
+                    label={field.label}
+                    type="date"
+                    value={fieldValues[field.field_key] || ''}
+                    onChange={(e) => handleFieldChange(field.field_key, e.target.value)}
+                    fullWidth
+                    required={!!field.is_required}
+                    error={isError}
+                    helperText={isError ? 'Required' : ''}
+                    InputLabelProps={{ shrink: true }}
+                />
+            );
+        }
+
+        return (
+            <TextField
+                key={field.id}
+                label={field.label}
+                type={field.data_type === 'number' ? 'number' : 'text'}
+                value={fieldValues[field.field_key] || ''}
+                onChange={(e) => handleFieldChange(field.field_key, e.target.value)}
+                fullWidth
+                required={!!field.is_required}
+                error={isError}
+                helperText={isError ? 'Required' : ''}
+            />
+        );
+    };
+
+
 
     return (
         <Box sx={{ flexGrow: 1, height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
@@ -273,16 +371,26 @@ const ClientsPage: React.FC = () => {
                                 ))}
                             </Select>
                         </FormControl>
+
+                        {/* Dynamic Fields */}
+                        {typeFields.length > 0 && (
+                            <>
+                                <Divider sx={{ my: 1 }}>
+                                    <Typography variant="caption" color="text.secondary">DETAILS</Typography>
+                                </Divider>
+                                {typeFields.map(field => renderField(field))}
+                            </>
+                        )}
                     </Box>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDialog}>Cancel</Button>
                     <Button
-                        onClick={handleNext}
+                        onClick={handleSave}
                         variant="contained"
                         disabled={!newClientName.trim() || !selectedClientTypeId}
                     >
-                        Next
+                        Save
                     </Button>
                 </DialogActions>
             </Dialog>

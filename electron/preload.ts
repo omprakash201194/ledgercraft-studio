@@ -68,4 +68,5 @@ contextBridge.exposeInMainWorld('api', {
     searchClients: (query: string) => ipcRenderer.invoke('client:search', query),
     getClientById: (clientId: string) => ipcRenderer.invoke('client:get-by-id', clientId),
     getAllClientTypes: () => ipcRenderer.invoke('client-type:get-all'),
+    getClientTypeFields: (clientTypeId: string) => ipcRenderer.invoke('client-type:get-fields', clientTypeId),
 });

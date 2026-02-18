@@ -22,7 +22,7 @@ import {
 } from '../categoryService';
 import { exportBackup, restoreBackup } from '../backupService';
 import { searchClients, getClientById, createClient } from '../clientService';
-import { getAllClientTypes } from '../clientTypeService';
+import { getAllClientTypes, getClientTypeFields } from '../clientTypeService';
 
 /**
  * Register all IPC handlers.
@@ -345,6 +345,10 @@ export function registerIpcHandlers(): void {
 
     ipcMain.handle('client-type:get-all', () => {
         return getAllClientTypes();
+    });
+
+    ipcMain.handle('client-type:get-fields', (_event, clientTypeId: string) => {
+        return getClientTypeFields(clientTypeId);
     });
 }
 

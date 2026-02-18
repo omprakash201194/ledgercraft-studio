@@ -267,10 +267,10 @@ declare global {
             updateUserPreferences(userId: string, prefs: Partial<UserPreferences>): Promise<UserPreferences>;
             resetUserPassword(targetUserId: string, newPassword: string): Promise<ServiceResult>;
 
-            // Clients
             searchClients(query: string): Promise<Client[]>;
             getClientById(clientId: string): Promise<Client | null>;
             getAllClientTypes(): Promise<ClientType[]>;
+            getClientTypeFields(clientTypeId: string): Promise<ClientTypeField[]>;
 
             // Missing Form Methods
             getFormsWithHierarchy(): Promise<any[]>;
@@ -303,5 +303,16 @@ declare global {
         name: string;
         created_at: string;
         updated_at: string;
+    }
+
+    interface ClientTypeField {
+        id: string;
+        client_type_id: string;
+        label: string;
+        field_key: string;
+        data_type: string;
+        is_required: number;
+        is_deleted: number;
+        created_at: string;
     }
 }
