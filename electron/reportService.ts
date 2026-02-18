@@ -238,15 +238,20 @@ export function deleteReports(reportIds: string[]): { success: boolean; error?: 
 /**
  * Get reports — ADMIN sees all, USER sees own.
  */
-export function getReports(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC') {
+export function getReports(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC', clientId?: string) {
     const currentUser = getCurrentUser();
     if (!currentUser) return { reports: [], total: 0 };
 
     if (currentUser.role === 'ADMIN') {
-        return database.getReportsWithDetails(page, limit, formId, search, sortBy, sortOrder);
+        return database.getReportsWithDetails(page, limit, formId, search, sortBy, sortOrder, clientId);
     }
 
     // User - fetch all sorted then slice
+    // Users only see their own reports, so client filter (if passed) is ignored or we could implement it if needed.
+    // But currently Client Page is ADMIN ONLY feature (implied by "Admin-only: Add Delete Client button").
+    // The requirement "3. Add section 'Reports History'" implies this page is for managing clients, likely Admin feature.
+    // If a normal user could see ClientsPage, they might need this filter.
+    // But for now, let's just pass it to admin flow.
     const allReports = database.getReportsByUser(currentUser.id, sortBy, sortOrder);
     // basic in-memory pagination for user
     const start = (page - 1) * limit;

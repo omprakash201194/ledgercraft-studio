@@ -277,7 +277,7 @@ declare global {
 
             // Missing Report Methods
             generateReport(input: GenerateReportInput): Promise<GenerateReportResult>;
-            getReports(page?: number, limit?: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC'): Promise<{ reports: ReportRecord[]; total: number }>;
+            getReports(page: number, limit: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', clientId?: string): Promise<{ reports: any[], total: number }>;
 
             getReportById(reportId: string): Promise<ReportRecord | null>;
             deleteReport(reportId: string): Promise<ServiceResult>;

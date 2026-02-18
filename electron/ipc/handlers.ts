@@ -266,11 +266,11 @@ export function registerIpcHandlers(): void {
         return generateReport(input);
     });
 
-    ipcMain.handle('report:get-all', (_event, page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC') => {
+    ipcMain.handle('report:get-all', (_event, page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', clientId?: string) => {
 
         const safeSortBy = sortBy || 'generated_at';
         const safeSortOrder = sortOrder || 'DESC';
-        return getReports(page, limit, formId, search, safeSortBy, safeSortOrder);
+        return getReports(page, limit, formId, search, safeSortBy, safeSortOrder, clientId);
     });
 
     ipcMain.handle('report:get-by-id', (_event, reportId: string) => {

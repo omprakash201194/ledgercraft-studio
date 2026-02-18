@@ -659,7 +659,7 @@ class Database {
     return stmt.get(id) as Report | undefined;
   }
 
-  getReportsWithDetails(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC'): { reports: (Report & { form_name: string; generated_by_username: string })[]; total: number } {
+  getReportsWithDetails(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC', clientId?: string): { reports: (Report & { form_name: string; generated_by_username: string })[]; total: number } {
     const db = this.getConnection();
     const offset = (page - 1) * limit;
 
@@ -679,6 +679,12 @@ class Database {
       conditions.push('r.form_id = ?');
       params.push(formId);
       countParams.push(formId);
+    }
+
+    if (clientId) {
+      conditions.push('r.client_id = ?');
+      params.push(clientId);
+      countParams.push(clientId);
     }
 
     if (search) {
