@@ -21,7 +21,8 @@ import {
     MoveItemInput
 } from '../categoryService';
 import { exportBackup, restoreBackup } from '../backupService';
-import { searchClients, getClientById } from '../clientService';
+import { searchClients, getClientById, createClient } from '../clientService';
+import { getAllClientTypes } from '../clientTypeService';
 
 /**
  * Register all IPC handlers.
@@ -340,6 +341,10 @@ export function registerIpcHandlers(): void {
 
     ipcMain.handle('client:get-by-id', (_event, clientId: string) => {
         return getClientById(clientId);
+    });
+
+    ipcMain.handle('client-type:get-all', () => {
+        return getAllClientTypes();
     });
 }
 

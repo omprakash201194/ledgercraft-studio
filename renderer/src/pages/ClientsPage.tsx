@@ -16,6 +16,14 @@ import {
     IconButton,
     InputAdornment,
     Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -87,6 +95,47 @@ const ClientsPage: React.FC = () => {
         ? clients.filter(c => c.category_id === selectedCategoryId)
         : clients;
 
+    // Create Client Dialog State
+    const [openDialog, setOpenDialog] = useState(false);
+    const [clientTypes, setClientTypes] = useState<ClientType[]>([]);
+    const [newClientName, setNewClientName] = useState('');
+    const [selectedClientTypeId, setSelectedClientTypeId] = useState('');
+
+    useEffect(() => {
+        const loadClientTypes = async () => {
+            try {
+                const types = await window.api.getAllClientTypes();
+                setClientTypes(types);
+            } catch (err) {
+                console.error('Failed to load client types', err);
+            }
+        };
+        loadClientTypes();
+    }, []);
+
+    const handleCreateClientClick = () => {
+        setNewClientName('');
+        setSelectedClientTypeId('');
+        setOpenDialog(true);
+    };
+
+    const handleCloseDialog = () => {
+        setOpenDialog(false);
+    };
+
+    const handleNext = () => {
+        // Placeholder for next step (dynamic fields)
+        console.log('Next clicked. Client Type ID stored:', selectedClientTypeId);
+        // We do not implement dynamic fields yet per instructions.
+        // For now, we can just close the dialog or keep it open.
+        // Instructions say "Store selected client_type_id in state". Done via state variable.
+        // "Return only modified ClientsPage file"
+
+        // Let's just alert for now so user knows it worked
+        alert(`Next step would show fields for type: ${selectedClientTypeId}`);
+        setOpenDialog(false);
+    };
+
     return (
         <Box sx={{ flexGrow: 1, height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ mb: 2 }}>
@@ -140,7 +189,7 @@ const ClientsPage: React.FC = () => {
                                 <Button
                                     variant="contained"
                                     startIcon={<AddIcon />}
-                                    onClick={() => alert('Create Client Dialog Placeholder')} // Placeholder for next step
+                                    onClick={handleCreateClientClick}
                                 >
                                     Create Client
                                 </Button>
@@ -197,6 +246,46 @@ const ClientsPage: React.FC = () => {
                     </Paper>
                 </Grid>
             </Grid>
+
+            {/* Create Client Dialog */}
+            <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Create Client</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                        <TextField
+                            label="Client Name"
+                            value={newClientName}
+                            onChange={(e) => setNewClientName(e.target.value)}
+                            fullWidth
+                            autoFocus
+                        />
+                        <FormControl fullWidth>
+                            <InputLabel>Client Type</InputLabel>
+                            <Select
+                                value={selectedClientTypeId}
+                                label="Client Type"
+                                onChange={(e) => setSelectedClientTypeId(e.target.value)}
+                            >
+                                {clientTypes.map((type) => (
+                                    <MenuItem key={type.id} value={type.id}>
+                                        {type.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDialog}>Cancel</Button>
+                    <Button
+                        onClick={handleNext}
+                        variant="contained"
+                        disabled={!newClientName.trim() || !selectedClientTypeId}
+                    >
+                        Next
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

@@ -270,6 +270,7 @@ declare global {
             // Clients
             searchClients(query: string): Promise<Client[]>;
             getClientById(clientId: string): Promise<Client | null>;
+            getAllClientTypes(): Promise<ClientType[]>;
 
             // Missing Form Methods
             getFormsWithHierarchy(): Promise<any[]>;
@@ -295,5 +296,12 @@ declare global {
         created_at: string;
         updated_at: string;
         field_values?: Record<string, string>;
+    }
+
+    interface ClientType {
+        id: string;
+        name: string;
+        created_at: string;
+        updated_at: string;
     }
 }
