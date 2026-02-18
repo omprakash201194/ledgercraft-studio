@@ -2,6 +2,12 @@ import { database, Category } from './database';
 import fs from 'fs';
 import { getCurrentUser } from './auth';
 import { logAction } from './auditService';
+import {
+    getClientCategories,
+    createClientCategory,
+    renameClientCategory,
+    deleteClientCategory
+} from './clientService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -12,13 +18,13 @@ export interface CategoryNode extends Category {
 export interface MoveItemInput {
     itemId: string;
     targetCategoryId: string | null; // null means root
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
 }
 
 export interface CreateCategoryInput {
     name: string;
     parentId: string | null;
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
 }
 
 export interface ServiceResult {
@@ -34,9 +40,18 @@ export interface MoveItemResult extends ServiceResult {
 
 /**
  * Get category tree for a specific type.
- * Returns a hierarchical list of category nodes.
  */
-export function getCategoryTree(type: 'TEMPLATE' | 'FORM'): CategoryNode[] {
+export function getCategoryTree(type: 'TEMPLATE' | 'FORM' | 'CLIENT'): CategoryNode[] {
+    if (type === 'CLIENT') {
+        const categories = getClientCategories().map(c => ({
+            id: c.id,
+            name: c.name,
+            parent_id: c.parent_id,
+            type: 'CLIENT' as const,
+            created_at: c.created_at
+        }));
+        return buildTree(categories as Category[]);
+    }
     const categories = database.getAllCategoriesByType(type);
     return buildTree(categories);
 }
@@ -82,6 +97,12 @@ export function createCategory(input: CreateCategoryInput): ServiceResult {
         if (!input.name.trim()) {
             return { success: false, error: 'Category name is required' };
         }
+
+        if (input.type === 'CLIENT') {
+            createClientCategory(input.name, input.parentId || undefined);
+            return { success: true };
+        }
+
         database.createCategory({
             name: input.name,
             parent_id: input.parentId,
@@ -93,11 +114,17 @@ export function createCategory(input: CreateCategoryInput): ServiceResult {
     }
 }
 
-export function renameCategory(id: string, newName: string): ServiceResult {
+export function renameCategory(id: string, newName: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): ServiceResult {
     try {
         if (!newName.trim()) {
             return { success: false, error: 'Category name is required' };
         }
+
+        if (type === 'CLIENT') {
+            renameClientCategory(id, newName);
+            return { success: true };
+        }
+
         database.updateCategoryName(id, newName);
         return { success: true };
     } catch (e) {
@@ -105,8 +132,13 @@ export function renameCategory(id: string, newName: string): ServiceResult {
     }
 }
 
-export function deleteCategory(id: string, type: 'TEMPLATE' | 'FORM'): ServiceResult {
+export function deleteCategory(id: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): ServiceResult {
     try {
+        if (type === 'CLIENT') {
+            deleteClientCategory(id);
+            return { success: true };
+        }
+
         // Validation: Must ensure no children
         const childrenCount = database.getCategoryChildrenCount(id);
         if (childrenCount > 0) {

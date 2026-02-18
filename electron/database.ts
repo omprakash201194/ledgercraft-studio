@@ -16,7 +16,7 @@ export interface Category {
   id: string;
   name: string;
   parent_id: string | null;
-  type: 'TEMPLATE' | 'FORM';
+  type: 'TEMPLATE' | 'FORM' | 'CLIENT';
   created_at: string;
 }
 

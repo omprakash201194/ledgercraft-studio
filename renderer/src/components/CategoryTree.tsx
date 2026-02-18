@@ -35,12 +35,12 @@ interface CategoryNode {
     id: string;
     name: string;
     parent_id: string | null;
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     children: CategoryNode[];
 }
 
 interface CategoryTreeProps {
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     selectedCategoryId: string | null;
     onSelectCategory: (categoryId: string | null) => void;
     refreshTrigger: number;
@@ -181,7 +181,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
     const submitRename = async () => {
         if (!targetCategory) return;
 
-        const result = await window.api.renameCategory(targetCategory.id, categoryName);
+        const result = await window.api.renameCategory(targetCategory.id, categoryName, type);
         if (result.success) {
             setRenameDialogOpen(false);
             loadTree();

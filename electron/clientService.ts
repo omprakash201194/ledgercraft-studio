@@ -96,6 +96,59 @@ export function getClientCategories(): ClientCategory[] {
 }
 
 /**
+ * Rename Client Category.
+ * ADMIN only.
+ */
+export function renameClientCategory(id: string, newName: string): void {
+    const user = getCurrentUser();
+    if (!user || user.role !== 'ADMIN') {
+        throw new Error('Only administrators can manage client categories');
+    }
+
+    if (!newName || newName.trim().length === 0) {
+        throw new Error('Category name is required');
+    }
+
+    const db = database.getConnection();
+    // Check if exists
+    const exists = db.prepare('SELECT id FROM client_categories WHERE id = ? AND is_deleted = 0').get(id);
+    if (!exists) throw new Error('Category not found');
+
+    db.prepare('UPDATE client_categories SET name = ? WHERE id = ?').run(newName.trim(), id);
+}
+
+/**
+ * Delete Client Category.
+ * ADMIN only.
+ * Must be empty (no subcategories, no clients).
+ */
+export function deleteClientCategory(id: string): void {
+    const user = getCurrentUser();
+    if (!user || user.role !== 'ADMIN') {
+        throw new Error('Only administrators can manage client categories');
+    }
+
+    const db = database.getConnection();
+    const category = db.prepare('SELECT id FROM client_categories WHERE id = ? AND is_deleted = 0').get(id);
+    if (!category) throw new Error('Category not found');
+
+    // Check for subcategories
+    const subCount = db.prepare('SELECT COUNT(*) as count FROM client_categories WHERE parent_id = ? AND is_deleted = 0').get(id) as { count: number };
+    if (subCount.count > 0) {
+        throw new Error('Cannot delete category with subcategories');
+    }
+
+    // Check for clients
+    const clientCount = db.prepare('SELECT COUNT(*) as count FROM clients WHERE category_id = ? AND is_deleted = 0').get(id) as { count: number };
+    if (clientCount.count > 0) {
+        throw new Error('Cannot delete category containing clients. Move them first.');
+    }
+
+    // Soft delete
+    db.prepare('UPDATE client_categories SET is_deleted = 1 WHERE id = ?').run(id);
+}
+
+/**
  * Create a new Client.
  * ADMIN only.
  * Enforces strict PAN Uniqueness for fields with key 'pan' or 'pan_number'.

@@ -46,11 +46,11 @@ contextBridge.exposeInMainWorld('api', {
     downloadReport: (filePath: string) => ipcRenderer.invoke('report:download', filePath),
 
     // Categories & Lifecycle
-    getCategoryTree: (type: 'TEMPLATE' | 'FORM') => ipcRenderer.invoke('category:get-tree', type),
+    getCategoryTree: (type: 'TEMPLATE' | 'FORM' | 'CLIENT') => ipcRenderer.invoke('category:get-tree', type),
     getCategoryChain: (id: string) => ipcRenderer.invoke('category:get-chain', id),
     createCategory: (input: unknown) => ipcRenderer.invoke('category:create', input),
-    renameCategory: (id: string, newName: string) => ipcRenderer.invoke('category:rename', id, newName),
-    deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => ipcRenderer.invoke('category:delete', id, type),
+    renameCategory: (id: string, name: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => ipcRenderer.invoke('category:rename', id, name, type),
+    deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => ipcRenderer.invoke('category:delete', id, type),
     moveItem: (input: unknown) => ipcRenderer.invoke('item:move', input),
     deleteTemplate: (id: string, force?: boolean) => ipcRenderer.invoke('template:delete', id, force),
     deleteForm: (id: string, deleteReports?: boolean) => ipcRenderer.invoke('form:delete', id, deleteReports),

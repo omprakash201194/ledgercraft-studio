@@ -161,7 +161,7 @@ declare global {
         id: string;
         name: string;
         parent_id: string | null;
-        type: 'TEMPLATE' | 'FORM';
+        type: 'TEMPLATE' | 'FORM' | 'CLIENT';
         created_at: string;
         children: CategoryNode[];
     }
@@ -169,13 +169,13 @@ declare global {
     interface CreateCategoryInput {
         name: string;
         parentId: string | null;
-        type: 'TEMPLATE' | 'FORM';
+        type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     }
 
     interface MoveItemInput {
         itemId: string;
         targetCategoryId: string | null;
-        type: 'TEMPLATE' | 'FORM';
+        type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     }
 
     interface ServiceResult {
@@ -249,10 +249,10 @@ declare global {
 
             // Categories
             getCategoryChain(categoryId: string): Promise<{ id: string; name: string }[]>;
-            getCategoryTree(type: 'TEMPLATE' | 'FORM'): Promise<CategoryNode[]>;
+            getCategoryTree(type: 'TEMPLATE' | 'FORM' | 'CLIENT'): Promise<CategoryNode[]>;
             createCategory(input: CreateCategoryInput): Promise<ServiceResult>;
-            renameCategory(id: string, name: string): Promise<ServiceResult>;
-            deleteCategory(id: string, type: 'TEMPLATE' | 'FORM'): Promise<ServiceResult>;
+            renameCategory(id: string, name: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): Promise<ServiceResult>;
+            deleteCategory(id: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): Promise<ServiceResult>;
             moveItem(input: MoveItemInput): Promise<ServiceResult>;
 
             deleteTemplate: (id: string, force?: boolean) => Promise<ServiceResult & { usageCount?: number }>;

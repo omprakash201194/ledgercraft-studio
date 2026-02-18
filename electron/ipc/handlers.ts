@@ -31,7 +31,7 @@ export function registerIpcHandlers(): void {
     // ... existing handlers ...
 
     // ─── Categories & Lifecycle ──────────────────────────
-    ipcMain.handle('category:get-tree', (_event, type: 'TEMPLATE' | 'FORM') => {
+    ipcMain.handle('category:get-tree', (_event, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => {
         return getCategoryTree(type);
     });
 
@@ -43,11 +43,11 @@ export function registerIpcHandlers(): void {
         return createCategory(input);
     });
 
-    ipcMain.handle('category:rename', (_event, id: string, newName: string) => {
-        return renameCategory(id, newName);
+    ipcMain.handle('category:rename', (_event, id: string, newName: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => {
+        return renameCategory(id, newName, type);
     });
 
-    ipcMain.handle('category:delete', (_event, id: string, type: 'TEMPLATE' | 'FORM') => {
+    ipcMain.handle('category:delete', (_event, id: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => {
         return deleteCategory(id, type);
     });
 
