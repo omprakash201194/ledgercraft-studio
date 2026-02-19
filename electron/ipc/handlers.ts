@@ -22,7 +22,7 @@ import {
 } from '../categoryService';
 import { exportBackup, restoreBackup } from '../backupService';
 import { searchClients, getClientById, createClient } from '../clientService';
-import { getAllClientTypes, getClientTypeFields } from '../clientTypeService';
+import { getAllClientTypes, getClientTypeFields, createClientType } from '../clientTypeService';
 
 /**
  * Register all IPC handlers.
@@ -343,12 +343,30 @@ export function registerIpcHandlers(): void {
         return getClientById(clientId);
     });
 
+    ipcMain.handle('client:create', (_event, input: any) => {
+        return createClient(input);
+    });
+
     ipcMain.handle('client-type:get-all', () => {
         return getAllClientTypes();
     });
 
     ipcMain.handle('client-type:get-fields', (_event, clientTypeId: string) => {
         return getClientTypeFields(clientTypeId);
+    });
+
+    ipcMain.handle('client-type:create', (_event, name: string) => {
+        return createClientType(name);
+    });
+
+    ipcMain.handle('client-type:add-field', (_event, clientTypeId: string, input: any) => {
+        const { addClientTypeField } = require('../clientTypeService');
+        return addClientTypeField(clientTypeId, input);
+    });
+
+    ipcMain.handle('client-type:delete-field', (_event, fieldId: string) => {
+        const { softDeleteClientTypeField } = require('../clientTypeService');
+        return softDeleteClientTypeField(fieldId);
     });
 }
 

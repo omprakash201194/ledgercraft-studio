@@ -38,6 +38,7 @@ import {
     Analytics as AnalyticsIcon,
     Menu as MenuIcon,
     ChevronLeft as ChevronLeftIcon,
+    SettingsApplications as ClientTypesIcon,
 } from '@mui/icons-material'; import { useAuth } from '../components/AuthContext';
 
 const SIDEBAR_WIDTH = 260;
@@ -57,6 +58,7 @@ const allNavItems: NavItem[] = [
     { label: 'Generate Report', path: '/generate-report', icon: <GenerateReportIcon />, roles: ['ADMIN', 'USER'] },
     { label: 'Reports', path: '/reports', icon: <ReportsIcon />, roles: ['ADMIN', 'USER'] },
     { label: 'Clients', path: '/clients', icon: <UsersIcon />, roles: ['ADMIN', 'USER'] },
+    { label: 'Client Types', path: '/client-types', icon: <ClientTypesIcon />, roles: ['ADMIN'] },
     { label: 'Analytics', path: '/analytics', icon: <AnalyticsIcon />, roles: ['ADMIN'] },
     { label: 'Audit Logs', path: '/audit', icon: <AuditIcon />, roles: ['ADMIN'] },
     { label: 'Users', path: '/users', icon: <UsersIcon />, roles: ['ADMIN'] },

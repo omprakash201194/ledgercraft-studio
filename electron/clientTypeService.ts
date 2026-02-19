@@ -1,5 +1,6 @@
 import { database } from './database';
 import { v4 as uuidv4 } from 'uuid';
+import { getCurrentUser } from './auth';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -33,8 +34,14 @@ export interface AddFieldInput {
 /**
  * Create a new Client Type.
  * Name must be unique.
+ * ADMIN only.
  */
 export function createClientType(name: string): ClientType {
+    const user = getCurrentUser();
+    if (!user || user.role !== 'ADMIN') {
+        throw new Error('Only administrators can create client types');
+    }
+
     if (!name || name.trim().length === 0) {
         throw new Error('Client Type name is required');
     }
@@ -42,8 +49,8 @@ export function createClientType(name: string): ClientType {
     const trimmedName = name.trim();
     const db = database.getConnection();
 
-    // Check for duplicate name
-    const existing = db.prepare('SELECT id FROM client_types WHERE name = ?').get(trimmedName);
+    // Check for duplicate name (Case-insensitive)
+    const existing = db.prepare('SELECT id FROM client_types WHERE lower(name) = lower(?)').get(trimmedName);
     if (existing) {
         throw new Error(`Client Type with name "${trimmedName}" already exists`);
     }

@@ -269,6 +269,7 @@ declare global {
 
             searchClients(query: string): Promise<Client[]>;
             getClientById(clientId: string): Promise<Client | null>;
+            createClient(input: CreateClientInput): Promise<Client>;
             getAllClientTypes(): Promise<ClientType[]>;
             getClientTypeFields(clientTypeId: string): Promise<ClientTypeField[]>;
 
@@ -298,6 +299,13 @@ declare global {
         field_values?: Record<string, string>;
     }
 
+    interface CreateClientInput {
+        name: string;
+        client_type_id: string;
+        category_id?: string | null;
+        field_values: { field_id: string; value: string }[];
+    }
+
     interface ClientType {
         id: string;
         name: string;
@@ -314,5 +322,9 @@ declare global {
         is_required: number;
         is_deleted: number;
         created_at: string;
+        createClientType(name: string): Promise<ClientType>;
+        addClientTypeField(clientTypeId: string, input: AddFieldInput): Promise<ClientTypeField>;
+        softDeleteClientTypeField(fieldId: string): Promise<void>;
     }
 }
+export { };

@@ -24,6 +24,8 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    Snackbar,
+    Alert,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -106,6 +108,15 @@ const ClientsPage: React.FC = () => {
     const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
     const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
 
+    // Notifications
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
+    const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+
+    const handleCloseSnackbar = () => {
+        setSnackbarOpen(false);
+    };
+
     useEffect(() => {
         const loadClientTypes = async () => {
             try {
@@ -162,7 +173,7 @@ const ClientsPage: React.FC = () => {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Validation
         const newErrors: Record<string, boolean> = {};
         let hasError = false;
@@ -186,15 +197,34 @@ const ClientsPage: React.FC = () => {
             return;
         }
 
-        console.log('Save clicked. Data:', {
-            name: newClientName,
-            typeId: selectedClientTypeId,
-            values: fieldValues
-        });
+        try {
+            const apiFieldValues = typeFields.map(field => ({
+                field_id: field.id,
+                value: fieldValues[field.field_key] || ''
+            }));
 
-        alert(`Would satisfy: Save client with ${Object.keys(fieldValues).length} dynamic fields.`);
-        setOpenDialog(false);
-        // "Do NOT save yet" -> logic stops here.
+            await window.api.createClient({
+                name: newClientName,
+                client_type_id: selectedClientTypeId,
+                category_id: selectedCategoryId,
+                field_values: apiFieldValues
+            });
+
+            setSnackbarMessage('Client created successfully');
+            setSnackbarSeverity('success');
+            setSnackbarOpen(true);
+            setOpenDialog(false);
+
+            // Refresh list
+            handleDataChange();
+            fetchClients(searchQuery);
+
+        } catch (err: any) {
+            console.error('Failed to create client:', err);
+            setSnackbarMessage(err.message || 'Failed to create client');
+            setSnackbarSeverity('error');
+            setSnackbarOpen(true);
+        }
     };
 
     const renderField = (field: ClientTypeField) => {
@@ -394,6 +424,17 @@ const ClientsPage: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <Snackbar
+                open={snackbarOpen}
+                autoHideDuration={6000}
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 };

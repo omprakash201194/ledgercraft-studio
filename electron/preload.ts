@@ -67,6 +67,10 @@ contextBridge.exposeInMainWorld('api', {
     // Clients
     searchClients: (query: string) => ipcRenderer.invoke('client:search', query),
     getClientById: (clientId: string) => ipcRenderer.invoke('client:get-by-id', clientId),
+    createClient: (input: any) => ipcRenderer.invoke('client:create', input),
     getAllClientTypes: () => ipcRenderer.invoke('client-type:get-all'),
     getClientTypeFields: (clientTypeId: string) => ipcRenderer.invoke('client-type:get-fields', clientTypeId),
+    createClientType: (name: string) => ipcRenderer.invoke('client-type:create', name),
+    addClientTypeField: (clientTypeId: string, input: any) => ipcRenderer.invoke('client-type:add-field', clientTypeId, input),
+    softDeleteClientTypeField: (fieldId: string) => ipcRenderer.invoke('client-type:delete-field', fieldId),
 });

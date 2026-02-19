@@ -35,6 +35,9 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/adm-zip": "^0.5.7",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
@@ -50,6 +53,7 @@
     "electron": "^34.1.0",
     "electron-builder": "^25.1.8",
     "eslint": "^9.39.2",
+    "jsdom": "^28.1.0",
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
     "vitest": "^4.0.18",

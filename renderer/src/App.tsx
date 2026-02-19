@@ -14,8 +14,10 @@ import ClientsPage from './pages/ClientsPage';
 import ClientDetailPage from './pages/ClientDetailPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import SettingsPage from './pages/SettingsPage';
+
 import AuditPage from './pages/AuditPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import ClientTypesPage from './pages/ClientTypesPage';
 import { Box, CircularProgress } from '@mui/material';
 
 /**
@@ -112,6 +114,7 @@ const App: React.FC = () => {
                             {/* Admin Only */}
                             <Route path="audit" element={<AdminRoute><AuditPage /></AdminRoute>} />
                             <Route path="analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
+                            <Route path="client-types" element={<AdminRoute><ClientTypesPage /></AdminRoute>} />
 
                         </Route>
 

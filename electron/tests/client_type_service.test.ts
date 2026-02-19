@@ -63,9 +63,9 @@ const mockPrepare = vi.fn((sql: string) => {
             mockGet(sql, args);
 
             // Check duplicate Name
-            if (sql.includes('SELECT id FROM client_types WHERE name = ?')) {
+            if (sql.includes('SELECT id FROM client_types WHERE lower(name) = lower(?)')) {
                 const [name] = args;
-                const found = clientTypes.find(t => t.name === name);
+                const found = clientTypes.find(t => t.name.toLowerCase() === name.toLowerCase());
                 return found ? { id: found.id } : undefined;
             }
 
@@ -116,6 +116,11 @@ vi.mock('../database', () => {
         }
     };
 });
+
+// Mock 'auth' module
+vi.mock('../auth', () => ({
+    getCurrentUser: () => ({ id: 'admin', username: 'admin', role: 'ADMIN' })
+}));
 
 import {
     createClientType,
