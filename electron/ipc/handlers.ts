@@ -21,7 +21,7 @@ import {
     MoveItemInput
 } from '../categoryService';
 import { exportBackup, restoreBackup } from '../backupService';
-import { searchClients, getClientById, createClient } from '../clientService';
+import { searchClients, getClientById, createClient, updateClient, getReportCountByClient, deleteClientOnly, deleteClientWithReports, exportClientReportsZip, getTopClients } from '../clientService';
 import { getAllClientTypes, getClientTypeFields, createClientType } from '../clientTypeService';
 
 /**
@@ -347,12 +347,73 @@ export function registerIpcHandlers(): void {
         return createClient(input);
     });
 
+    ipcMain.handle('client:get-top', (_event, limit?: number) => {
+        return getTopClients(limit || 10);
+    });
+
+    ipcMain.handle('client:update', (_event, clientId: string, updates: any) => {
+        try {
+            updateClient(clientId, updates);
+            return { success: true };
+        } catch (error: any) {
+            console.error('IPC update-client err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('client:get-report-count', (_event, clientId: string) => {
+        try {
+            return getReportCountByClient(clientId);
+        } catch (error: any) {
+            console.error('IPC get-report-count err:', error);
+            return 0;
+        }
+    });
+
+    ipcMain.handle('client:delete-only', (_event, clientId: string) => {
+        const currentUser = getCurrentUser();
+        try {
+            deleteClientOnly(clientId, currentUser?.role || '');
+            return { success: true };
+        } catch (error: any) {
+            console.error('IPC delete-only err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('client:delete-with-reports', (_event, clientId: string) => {
+        const currentUser = getCurrentUser();
+        try {
+            deleteClientWithReports(clientId, currentUser?.role || '');
+            return { success: true };
+        } catch (error: any) {
+            console.error('IPC delete-with-reports err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('client:export-reports-zip', (_event, clientId: string) => {
+        const currentUser = getCurrentUser();
+        try {
+            const zipPath = exportClientReportsZip(clientId, currentUser?.role || '');
+            return { success: true, zipPath };
+        } catch (error: any) {
+            console.error('IPC export-reports-zip err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('client-type:get-all', () => {
         return getAllClientTypes();
     });
 
     ipcMain.handle('client-type:get-fields', (_event, clientTypeId: string) => {
         return getClientTypeFields(clientTypeId);
+    });
+
+    ipcMain.handle('client-type:get-all-fields', () => {
+        const { getAllClientTypeFields } = require('../clientTypeService');
+        return getAllClientTypeFields();
     });
 
     ipcMain.handle('client-type:create', (_event, name: string) => {

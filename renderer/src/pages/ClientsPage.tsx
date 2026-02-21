@@ -26,11 +26,15 @@ import {
     MenuItem,
     Snackbar,
     Alert,
+    useTheme,
+    Checkbox,
+    ListItemText,
 } from '@mui/material';
 import {
     Search as SearchIcon,
     Visibility as VisibilityIcon,
     Add as AddIcon,
+    Edit as EditIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import CategoryTree from '../components/CategoryTree';
@@ -48,6 +52,7 @@ interface Client {
 const ClientsPage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const theme = useTheme();
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -97,11 +102,20 @@ const ClientsPage: React.FC = () => {
         ? clients.filter(c => c.category_id === selectedCategoryId)
         : clients;
 
-    // Create Client Dialog State
+    // Create/Edit Client Dialog State
     const [openDialog, setOpenDialog] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [editingClientId, setEditingClientId] = useState<string | null>(null);
+    const [originalClient, setOriginalClient] = useState<Client | null>(null);
+    const [originalFieldValues, setOriginalFieldValues] = useState<Record<string, string>>({});
     const [clientTypes, setClientTypes] = useState<ClientType[]>([]);
     const [newClientName, setNewClientName] = useState('');
     const [selectedClientTypeId, setSelectedClientTypeId] = useState('');
+    const [selectedDialogCategoryId, setSelectedDialogCategoryId] = useState<string>('');
+
+    // Dynamic Columns Table State
+    const [allCustomFields, setAllCustomFields] = useState<{ field_key: string; label: string; data_type: string }[]>([]);
+    const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>([]);
 
     // Dynamic Fields State
     const [typeFields, setTypeFields] = useState<ClientTypeField[]>([]);
@@ -118,22 +132,39 @@ const ClientsPage: React.FC = () => {
     };
 
     useEffect(() => {
-        const loadClientTypes = async () => {
+        const loadClientTypesAndCategories = async () => {
             try {
                 const types = await window.api.getAllClientTypes();
                 setClientTypes(types);
+
+                const customFields = await window.api.getAllClientTypeFields();
+                setAllCustomFields(customFields);
+
+                if (user?.id) {
+                    const prefs = await window.api.getUserPreferences(user.id);
+                    if (prefs.client_columns) {
+                        try {
+                            const parsed = JSON.parse(prefs.client_columns);
+                            if (Array.isArray(parsed)) {
+                                setSelectedColumnKeys(parsed);
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse client_columns preference', e);
+                        }
+                    }
+                }
             } catch (err) {
-                console.error('Failed to load client types', err);
+                console.error('Failed to load client types or preferences', err);
             }
         };
-        loadClientTypes();
-    }, []);
+        loadClientTypesAndCategories();
+    }, [user?.id]);
 
     // Fetch fields when Type changes
     useEffect(() => {
         if (!selectedClientTypeId) {
             setTypeFields([]);
-            setFieldValues({});
+            if (!editMode) setFieldValues({});
             setFieldErrors({});
             return;
         }
@@ -142,21 +173,60 @@ const ClientsPage: React.FC = () => {
             try {
                 const fields = await window.api.getClientTypeFields(selectedClientTypeId);
                 setTypeFields(fields);
-                // Reset values when type changes
-                setFieldValues({});
-                setFieldErrors({});
+                // Prevent double initialization: only reset if not in edit mode
+                if (!editMode) {
+                    setFieldValues({});
+                    setFieldErrors({});
+                } else {
+                    // Ensure dynamic fields load AFTER client type is loaded, pre-populated
+                    setFieldValues(originalFieldValues);
+                }
             } catch (err) {
                 console.error('Failed to load type fields', err);
             }
         };
         loadFields();
-    }, [selectedClientTypeId]);
+    }, [selectedClientTypeId, editMode, originalFieldValues]);
 
     const handleCreateClientClick = () => {
+        setEditMode(false);
+        setEditingClientId(null);
+        setOriginalClient(null);
+        setOriginalFieldValues({});
         setNewClientName('');
         setSelectedClientTypeId('');
+        setSelectedDialogCategoryId('');
         setTypeFields([]);
         setFieldValues({});
+        setFieldErrors({});
+        setOpenDialog(true);
+    };
+
+    const handleEditClientClick = async (client: Client) => {
+        // DO NOT CLEAR FIELDS ON DIALOG OPEN
+        setEditMode(true);
+        setEditingClientId(client.id);
+        setOriginalClient(client);
+
+        setNewClientName(client.name);
+        setSelectedClientTypeId(client.client_type_id);
+        setSelectedDialogCategoryId(client.category_id || '');
+
+        try {
+            const fullClient = await window.api.getClientById(client.id);
+            if (fullClient && fullClient.field_values) {
+                setOriginalFieldValues(fullClient.field_values);
+                setFieldValues(fullClient.field_values);
+            } else {
+                setOriginalFieldValues({});
+                setFieldValues({});
+            }
+        } catch (err) {
+            console.error('Failed to fetch client details for editing', err);
+            setOriginalFieldValues({});
+            setFieldValues({});
+        }
+
         setFieldErrors({});
         setOpenDialog(true);
     };
@@ -200,17 +270,26 @@ const ClientsPage: React.FC = () => {
         try {
             const apiFieldValues = typeFields.map(field => ({
                 field_id: field.id,
-                value: fieldValues[field.field_key] || ''
+                value: String(fieldValues[field.field_key] || '')
             }));
 
-            await window.api.createClient({
-                name: newClientName,
-                client_type_id: selectedClientTypeId,
-                category_id: selectedCategoryId,
-                field_values: apiFieldValues
-            });
+            if (editMode && editingClientId) {
+                await window.api.updateClient(editingClientId, {
+                    name: newClientName,
+                    category_id: selectedDialogCategoryId || null,
+                    field_values: apiFieldValues
+                });
+                setSnackbarMessage('Client updated successfully');
+            } else {
+                await window.api.createClient({
+                    name: newClientName,
+                    client_type_id: selectedClientTypeId,
+                    category_id: selectedDialogCategoryId || null,
+                    field_values: apiFieldValues
+                });
+                setSnackbarMessage('Client created successfully');
+            }
 
-            setSnackbarMessage('Client created successfully');
             setSnackbarSeverity('success');
             setSnackbarOpen(true);
             setOpenDialog(false);
@@ -220,8 +299,8 @@ const ClientsPage: React.FC = () => {
             fetchClients(searchQuery);
 
         } catch (err: any) {
-            console.error('Failed to create client:', err);
-            setSnackbarMessage(err.message || 'Failed to create client');
+            console.error(editMode ? 'Failed to update client:' : 'Failed to create client:', err);
+            setSnackbarMessage(err.message || (editMode ? 'Failed to update client' : 'Failed to create client'));
             setSnackbarSeverity('error');
             setSnackbarOpen(true);
         }
@@ -262,7 +341,25 @@ const ClientsPage: React.FC = () => {
         );
     };
 
+    const hasChanges = () => {
+        if (!editMode) return true; // Always allow save in create mode (if valid)
+        if (!originalClient) return true;
 
+        if (newClientName !== originalClient.name) return true;
+
+        const currentCategoryId = selectedDialogCategoryId || null;
+        if (currentCategoryId !== originalClient.category_id) return true;
+
+        for (const field of typeFields) {
+            const key = field.field_key;
+            const origVal = originalFieldValues[key] || '';
+            const currVal = fieldValues[key] || '';
+            if (String(origVal) !== String(currVal)) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     return (
         <Box sx={{ flexGrow: 1, height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
@@ -298,21 +395,55 @@ const ClientsPage: React.FC = () => {
                         }}
                     >
                         {/* Header: Search & Actions */}
-                        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <TextField
-                                size="small"
-                                placeholder="Search clients..."
-                                value={searchQuery}
-                                onChange={handleSearchChange}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon fontSize="small" color="action" />
-                                        </InputAdornment>
-                                    ),
-                                }}
-                                sx={{ width: 300 }}
-                            />
+                        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+                            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                <TextField
+                                    size="small"
+                                    placeholder="Search clients..."
+                                    value={searchQuery}
+                                    onChange={handleSearchChange}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon fontSize="small" color="action" />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                    sx={{ width: 300 }}
+                                />
+
+                                <FormControl size="small" sx={{ minWidth: 200, maxWidth: 300 }}>
+                                    <InputLabel id="custom-column-label">Client Columns</InputLabel>
+                                    <Select
+                                        labelId="custom-column-label"
+                                        label="Client Columns"
+                                        multiple
+                                        value={selectedColumnKeys}
+                                        onChange={(e) => {
+                                            const value = e.target.value as string[];
+                                            setSelectedColumnKeys(value);
+                                            if (user?.id) {
+                                                window.api.updateUserPreferences(user.id, { client_columns: JSON.stringify(value) })
+                                                    .catch(err => console.error('Failed to update columns preference', err));
+                                            }
+                                        }}
+                                        renderValue={(selected) => {
+                                            if (selected.length === 0) return <em>None</em>;
+                                            return selected
+                                                .map(key => allCustomFields.find(f => f.field_key === key)?.label || key)
+                                                .join(', ');
+                                        }}
+                                    >
+                                        {allCustomFields.map(f => (
+                                            <MenuItem key={f.field_key} value={f.field_key}>
+                                                <Checkbox checked={selectedColumnKeys.indexOf(f.field_key) > -1} />
+                                                <ListItemText primary={f.label} />
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+
                             {user?.role === 'ADMIN' && (
                                 <Button
                                     variant="contained"
@@ -330,8 +461,12 @@ const ClientsPage: React.FC = () => {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell>Name</TableCell>
-                                        <TableCell>Type ID</TableCell>
-                                        <TableCell>Category</TableCell>
+                                        <TableCell>Type</TableCell>
+                                        {selectedColumnKeys.map(key => (
+                                            <TableCell key={key}>
+                                                {allCustomFields.find(f => f.field_key === key)?.label || key}
+                                            </TableCell>
+                                        ))}
                                         <TableCell align="right">Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -344,9 +479,27 @@ const ClientsPage: React.FC = () => {
                                             onClick={() => handleClientClick(client.id)}
                                         >
                                             <TableCell>{client.name}</TableCell>
-                                            <TableCell>{client.client_type_id}</TableCell>
-                                            <TableCell>{client.category_id || '-'}</TableCell>
+                                            <TableCell>
+                                                {clientTypes.find(t => t.id === client.client_type_id)?.name || 'Unknown'}
+                                            </TableCell>
+                                            {selectedColumnKeys.map(key => (
+                                                <TableCell key={key}>
+                                                    {client.field_values?.[key] || '-'}
+                                                </TableCell>
+                                            ))}
                                             <TableCell align="right">
+                                                <Tooltip title="Edit Client">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEditClientClick(client);
+                                                        }}
+                                                        sx={{ mr: 1 }}
+                                                    >
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
                                                 <Tooltip title="View Details">
                                                     <IconButton
                                                         size="small"
@@ -375,9 +528,9 @@ const ClientsPage: React.FC = () => {
                 </Grid>
             </Grid>
 
-            {/* Create Client Dialog */}
+            {/* Create / Edit Client Dialog */}
             <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>Create Client</DialogTitle>
+                <DialogTitle>{editMode ? 'Edit Client' : 'Create Client'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                         <TextField
@@ -387,7 +540,24 @@ const ClientsPage: React.FC = () => {
                             fullWidth
                             autoFocus
                         />
-                        <FormControl fullWidth>
+                        <Box>
+                            <Typography variant="caption" sx={{ mb: 1, display: 'block' }}>Category (Optional)</Typography>
+                            <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, height: 200, overflow: 'auto', mb: 2 }}>
+                                <CategoryTree
+                                    type="CLIENT"
+                                    selectedCategoryId={selectedDialogCategoryId || null}
+                                    onSelectCategory={(id) => setSelectedDialogCategoryId(id || '')}
+                                    refreshTrigger={refreshTrigger}
+                                    readOnly={true}
+                                />
+                            </Box>
+                            {selectedDialogCategoryId && (
+                                <Button size="small" onClick={() => setSelectedDialogCategoryId('')} sx={{ mt: -1, mb: 2 }}>
+                                    Clear Selection
+                                </Button>
+                            )}
+                        </Box>
+                        <FormControl fullWidth disabled={editMode}>
                             <InputLabel>Client Type</InputLabel>
                             <Select
                                 value={selectedClientTypeId}
@@ -418,7 +588,7 @@ const ClientsPage: React.FC = () => {
                     <Button
                         onClick={handleSave}
                         variant="contained"
-                        disabled={!newClientName.trim() || !selectedClientTypeId}
+                        disabled={!newClientName.trim() || !selectedClientTypeId || !hasChanges()}
                     >
                         Save
                     </Button>

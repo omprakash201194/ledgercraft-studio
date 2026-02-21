@@ -149,7 +149,6 @@ const ClientTypesPage: React.FC = () => {
             // But if the API isn't exposed, I can't call it.
             // I will assume I need to expose it as part of "wiring".
 
-            // FIXME: Type definition might be missing in global.d.ts if not added yet.
             // Proceeding with implementation assuming standard API pattern.
 
             await (window.api as any).addClientTypeField(selectedType.id, {

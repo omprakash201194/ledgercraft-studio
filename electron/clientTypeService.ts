@@ -151,6 +151,21 @@ export function getClientTypeFields(clientTypeId: string): ClientTypeField[] {
 }
 
 /**
+ * Get ALL unique active custom fields across the entire system.
+ * Used for building dynamic global column selectors.
+ */
+export function getAllClientTypeFields(): { field_key: string; label: string; data_type: string }[] {
+    const db = database.getConnection();
+    return db.prepare(`
+        SELECT field_key, MAX(label) as label, MAX(data_type) as data_type
+        FROM client_type_fields
+        WHERE is_deleted = 0
+        GROUP BY field_key
+        ORDER BY label ASC
+    `).all() as { field_key: string; label: string; data_type: string }[];
+}
+
+/**
  * Update a field's label.
  * field_key is immutable.
  */

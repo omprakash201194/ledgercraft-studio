@@ -283,6 +283,7 @@ class Database {
     `);
 
     // ─── Migrations ──────────────────────────────────────
+    this.safeAddColumn('user_preferences', 'client_columns', "TEXT DEFAULT '[]'");
     this.safeAddColumn('templates', 'category_id', 'TEXT');
     this.safeAddColumn('forms', 'category_id', 'TEXT');
     this.safeAddColumn('reports', 'client_id', 'TEXT REFERENCES clients(id)'); // Added client_id migration
@@ -380,13 +381,9 @@ class Database {
     const params: any[] = [];
 
     let whereClause = '';
-    if (categoryId !== undefined) {
-      if (categoryId === null) {
-        whereClause = ' WHERE t.category_id IS NULL';
-      } else {
-        whereClause = ' WHERE t.category_id = ?';
-        params.push(categoryId);
-      }
+    if (categoryId !== undefined && categoryId !== null) {
+      whereClause = ' WHERE t.category_id = ?';
+      params.push(categoryId);
     }
 
     const countResult = db.prepare(countQuery + whereClause.replace('t.', '')).get(...params) as { count: number };
@@ -550,13 +547,9 @@ class Database {
       whereClause += ' AND f.is_deleted = 0';
     }
 
-    if (categoryId !== undefined) {
-      if (categoryId === null) {
-        whereClause += ' AND f.category_id IS NULL';
-      } else {
-        whereClause += ' AND f.category_id = ?';
-        params.push(categoryId);
-      }
+    if (categoryId !== undefined && categoryId !== null) {
+      whereClause += ' AND f.category_id = ?';
+      params.push(categoryId);
     }
 
     // We can't rename count to 'total' inside the query easily without wrapper

@@ -1,6 +1,10 @@
 import { database } from './database';
 import { getCurrentUser } from './auth';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import AdmZip from 'adm-zip';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -249,7 +253,13 @@ export function searchClients(query: string): Client[] {
     if (trimmedQuery.length === 0) return [];
 
     const sql = `
-        SELECT DISTINCT c.* 
+        SELECT c.*, 
+               (
+                   SELECT json_group_object(ctf.field_key, cfv_inner.value)
+                   FROM client_field_values cfv_inner
+                   JOIN client_type_fields ctf ON ctf.id = cfv_inner.field_id
+                   WHERE cfv_inner.client_id = c.id
+               ) as fields_json
         FROM clients c
         LEFT JOIN client_field_values cfv ON c.id = cfv.client_id
         WHERE c.is_deleted = 0
@@ -257,12 +267,55 @@ export function searchClients(query: string): Client[] {
             c.name LIKE ? 
             OR cfv.value LIKE ?
         )
+        GROUP BY c.id
         ORDER BY c.name ASC
         LIMIT 50
     `;
 
     const pattern = `%${trimmedQuery}%`;
-    return db.prepare(sql).all(pattern, pattern) as Client[];
+    const results = db.prepare(sql).all(pattern, pattern) as (Client & { fields_json?: string })[];
+
+    return results.map(row => {
+        const client: Client = {
+            id: row.id,
+            name: row.name,
+            client_type_id: row.client_type_id,
+            category_id: row.category_id,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            is_deleted: row.is_deleted
+        };
+
+        if (row.fields_json) {
+            try {
+                const parsed = JSON.parse(row.fields_json);
+                // JSON_GROUP_OBJECT returns {} for empty groups sometimes, handle it
+                if (Object.keys(parsed).length > 0) {
+                    client.field_values = parsed;
+                }
+            } catch (e) {
+                console.error('Failed to parse fields_json', e);
+            }
+        }
+        return client;
+    });
+}
+
+/**
+ * Get top clients sorted by report count.
+ */
+export function getTopClients(limit: number = 10): Client[] {
+    const db = database.getConnection();
+    const sql = `
+        SELECT c.*
+        FROM clients c
+        LEFT JOIN reports r ON r.client_id = c.id
+        WHERE c.is_deleted = 0
+        GROUP BY c.id
+        ORDER BY COUNT(r.id) DESC
+        LIMIT ?
+    `;
+    return db.prepare(sql).all(limit) as Client[];
 }
 
 /**
@@ -379,4 +432,126 @@ export function softDeleteClient(clientId: string): void {
     const res = db.prepare('UPDATE clients SET is_deleted = 1 WHERE id = ?').run(clientId);
 
     if (res.changes === 0) throw new Error('Client not found');
+}
+
+// ─── Safe Client Deletion & Export ────────────────────────
+
+/**
+ * Get count of reports associated with a client.
+ */
+export function getReportCountByClient(clientId: string): number {
+    const db = database.getConnection();
+    const result = db.prepare('SELECT COUNT(*) as count FROM reports WHERE client_id = ?').get(clientId) as { count: number };
+    return result.count;
+}
+
+/**
+ * Get all reports for a client.
+ */
+export function getReportsByClient(clientId: string): { id: string; file_path: string; created_at: string }[] {
+    const db = database.getConnection();
+    return db.prepare('SELECT id, file_path, created_at FROM reports WHERE client_id = ?').all(clientId) as { id: string; file_path: string; created_at: string }[];
+}
+
+/**
+ * Delete client but KEEP reports (detach them).
+ * ADMIN only.
+ */
+export function deleteClientOnly(clientId: string, role: string): void {
+    if (role !== 'ADMIN') {
+        throw new Error('Only administrators can delete clients');
+    }
+
+    const db = database.getConnection();
+
+    const transaction = db.transaction(() => {
+        // 1. Soft delete client
+        const clientRes = db.prepare('UPDATE clients SET is_deleted = 1 WHERE id = ?').run(clientId);
+        if (clientRes.changes === 0) throw new Error('Client not found');
+
+        // 2. Detach reports
+        db.prepare('UPDATE reports SET client_id = NULL WHERE client_id = ?').run(clientId);
+    });
+
+    transaction();
+}
+
+/**
+ * Delete client AND all their reports (files + DB rows).
+ * ADMIN only.
+ */
+export function deleteClientWithReports(clientId: string, role: string): void {
+    if (role !== 'ADMIN') {
+        throw new Error('Only administrators can delete clients');
+    }
+
+    const db = database.getConnection();
+
+    // Get all reports first to know which files to delete
+    const reports = db.prepare('SELECT id, file_path FROM reports WHERE client_id = ?').all(clientId) as { id: string; file_path: string }[];
+
+    const transaction = db.transaction(() => {
+        // 1. Delete reports from DB
+        db.prepare('DELETE FROM reports WHERE client_id = ?').run(clientId);
+
+        // 2. Soft delete client
+        const clientRes = db.prepare('UPDATE clients SET is_deleted = 1 WHERE id = ?').run(clientId);
+        if (clientRes.changes === 0) throw new Error('Client not found');
+    });
+
+    transaction();
+
+    // 3. Delete files from disk
+    for (const report of reports) {
+        if (report.file_path && fs.existsSync(report.file_path)) {
+            try {
+                fs.unlinkSync(report.file_path);
+            } catch (err) {
+                console.error(`Failed to delete report file: ${report.file_path}`, err);
+            }
+        }
+    }
+}
+
+/**
+ * Export all client reports as a ZIP file.
+ * ADMIN only.
+ * Returns path to zip file.
+ */
+export function exportClientReportsZip(clientId: string, role: string): string {
+    if (role !== 'ADMIN') {
+        throw new Error('Only administrators can export client data');
+    }
+
+    const db = database.getConnection();
+    const client = db.prepare('SELECT name FROM clients WHERE id = ?').get(clientId) as { name: string };
+    if (!client) throw new Error('Client not found');
+
+    const reports = db.prepare('SELECT file_path FROM reports WHERE client_id = ?').all(clientId) as { file_path: string }[];
+
+    if (reports.length === 0) {
+        throw new Error('No reports found for this client');
+    }
+
+    const zip = new AdmZip();
+    let addedCount = 0;
+
+    for (const report of reports) {
+        if (report.file_path && fs.existsSync(report.file_path)) {
+            zip.addLocalFile(report.file_path);
+            addedCount++;
+        }
+    }
+
+    if (addedCount === 0) {
+        throw new Error('No valid report files found on disk');
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeName = client.name.replace(/[^a-z0-9]/gi, '_');
+    const zipName = `${safeName}_Reports_${timestamp}.zip`;
+    const zipPath = path.join(os.tmpdir(), zipName);
+
+    zip.writeZip(zipPath);
+    return zipPath;
 }

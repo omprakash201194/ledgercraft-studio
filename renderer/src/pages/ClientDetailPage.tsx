@@ -23,7 +23,14 @@ import {
     MenuItem,
     ListItemIcon,
     useTheme,
-    alpha
+    alpha,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
+    Snackbar,
+    Stack
 } from '@mui/material';
 import {
     Person as PersonIcon,
@@ -73,6 +80,14 @@ const ClientDetailPage: React.FC = () => {
     const [reportsPage, setReportsPage] = useState(0);
     const [reportsRowsPerPage, setReportsRowsPerPage] = useState(5);
     const [totalReports, setTotalReports] = useState(0);
+
+    // Deletion Dialog State
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [reportCount, setReportCount] = useState<number | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
+    // Snackbar State
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
     // Initial Load
     useEffect(() => {
@@ -132,9 +147,84 @@ const ClientDetailPage: React.FC = () => {
         }
     };
 
-    const handleDeleteClient = () => {
-        // Placeholder
-        alert('Delete Client - Logic not implemented yet');
+    const handleDeleteClick = async () => {
+        if (!client) return;
+        try {
+            const count = await window.api.getClientReportCount(client.id);
+            setReportCount(count);
+            setDeleteDialogOpen(true);
+        } catch (err) {
+            console.error('Failed to get report count', err);
+            setSnackbar({ open: true, message: 'Failed to verify client reports. Cannot proceed with deletion.', severity: 'error' });
+        }
+    };
+
+    const closeDeleteDialog = () => {
+        setDeleteDialogOpen(false);
+        setReportCount(null);
+    };
+
+    const confirmDeleteOnly = async () => {
+        if (!client) return;
+        setDeleting(true);
+        try {
+            const result = await window.api.deleteClientOnly(client.id);
+            if (result.success) {
+                setSnackbar({ open: true, message: 'Client deleted successfully.', severity: 'success' });
+                setTimeout(() => navigate('/clients'), 1500);
+            } else {
+                throw new Error(result.error || 'Failed to delete client');
+            }
+        } catch (err: any) {
+            console.error(err);
+            setSnackbar({ open: true, message: err.message || 'Error deleting client', severity: 'error' });
+            setDeleting(false);
+            closeDeleteDialog();
+        }
+    };
+
+    const confirmDeleteWithReports = async () => {
+        if (!client) return;
+        setDeleting(true);
+        try {
+            const result = await window.api.deleteClientWithReports(client.id);
+            if (result.success) {
+                setSnackbar({ open: true, message: 'Client and reports deleted successfully.', severity: 'success' });
+                setTimeout(() => navigate('/clients'), 1500);
+            } else {
+                throw new Error(result.error || 'Failed to delete client and reports');
+            }
+        } catch (err: any) {
+            console.error(err);
+            setSnackbar({ open: true, message: err.message || 'Error deleting client and reports', severity: 'error' });
+            setDeleting(false);
+            closeDeleteDialog();
+        }
+    };
+
+    const handleDownloadReportsZip = async () => {
+        if (!client) return;
+        setDeleting(true); // Re-using state to disable buttons
+        try {
+            const result = await window.api.exportClientReportsZip(client.id);
+            if (result.success && result.zipPath) {
+                setSnackbar({ open: true, message: 'Reports archived. Starting download...', severity: 'success' });
+                try {
+                    await window.api.downloadReport(result.zipPath);
+                    setSnackbar({ open: true, message: 'Archive downloaded successfully.', severity: 'success' });
+                } catch (dErr) {
+                    console.error('Download failed', dErr);
+                    setSnackbar({ open: true, message: 'Archive created but download failed.', severity: 'error' });
+                }
+            } else {
+                throw new Error(result.error || 'Failed to create archive');
+            }
+        } catch (err: any) {
+            console.error('Archive failed', err);
+            setSnackbar({ open: true, message: err.message || 'Failed to create archive', severity: 'error' });
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleOpenFile = async (filePath: string) => {
@@ -189,7 +279,7 @@ const ClientDetailPage: React.FC = () => {
                             variant="outlined"
                             color="error"
                             startIcon={<DeleteIcon />}
-                            onClick={handleDeleteClient}
+                            onClick={handleDeleteClick}
                         >
                             Delete Client
                         </Button>
@@ -354,8 +444,86 @@ const ClientDetailPage: React.FC = () => {
                         </Paper>
                     </Grid>
                 </Grid>
+
+                {/* Deletion Dialogs */}
+                <Dialog open={deleteDialogOpen && reportCount === 0} onClose={!deleting ? closeDeleteDialog : undefined}>
+                    <DialogTitle>Delete Client</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            Are you sure you want to delete this client? This action cannot be undone.
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={closeDeleteDialog} disabled={deleting}>Cancel</Button>
+                        <Button onClick={confirmDeleteOnly} color="error" variant="contained" disabled={deleting}>
+                            {deleting ? <CircularProgress size={24} color="inherit" /> : 'Delete'}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={deleteDialogOpen && reportCount !== null && reportCount > 0} onClose={!deleting ? closeDeleteDialog : undefined} maxWidth="sm" fullWidth>
+                    <DialogTitle>Delete Client</DialogTitle>
+                    <DialogContent dividers>
+                        <Stack spacing={2}>
+                            <Alert severity="warning">
+                                This client has {reportCount} associated report{reportCount !== 1 ? 's' : ''}.
+                            </Alert>
+                            <Typography>
+                                Choose how you would like to proceed.
+                            </Typography>
+                            <Stack spacing={2}>
+                                {/* Section 1 (Safe Option) */}
+                                <Button
+                                    onClick={confirmDeleteOnly}
+                                    color="primary"
+                                    variant="outlined"
+                                    disabled={deleting}
+                                    fullWidth
+                                >
+                                    Detach Reports (Keep Files)
+                                </Button>
+
+                                {/* Section 2 (Destructive Option) */}
+                                <Button
+                                    onClick={confirmDeleteWithReports}
+                                    color="error"
+                                    variant="contained"
+                                    disabled={deleting}
+                                    fullWidth
+                                >
+                                    {deleting ? <CircularProgress size={24} color="inherit" /> : 'Delete Client + Reports'}
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, pb: 3 }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<DownloadIcon />}
+                            onClick={handleDownloadReportsZip}
+                            disabled={deleting}
+                            sx={{ mr: 'auto' }}
+                        >
+                            Download Reports
+                        </Button>
+                        <Button onClick={closeDeleteDialog} disabled={deleting}>
+                            Cancel
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Snackbar
+                    open={snackbar.open}
+                    autoHideDuration={6000}
+                    onClose={() => setSnackbar({ ...snackbar, open: false })}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                    <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
             </Box>
-        </Fade>
+        </Fade >
     );
 };
 

@@ -207,6 +207,7 @@ declare global {
         user_id: string;
         theme: 'light' | 'dark';
         date_format: string;
+        client_columns?: string;
         updated_at: string;
     }
 
@@ -241,9 +242,10 @@ declare global {
             createForm(input: CreateFormInput): Promise<CreateFormResult>;
             updateForm(input: UpdateFormInput): Promise<FormRecord & { fields: FormFieldRecord[] }>;
             getForms(page?: number, limit?: number, categoryId?: string | null, includeArchived?: boolean): Promise<{ forms: (FormRecord & { template_name: string; field_count: number })[]; total: number }>;
-            createForm(input: CreateFormInput): Promise<CreateFormResult>;
+            getFormById(formId: string): Promise<FormRecord | null>;
             updateForm(input: UpdateFormInput): Promise<FormRecord & { fields: FormFieldRecord[] }>;
             getFormFields(formId: string): Promise<FormFieldRecord[]>;
+            generateFormFields(templateId: string): Promise<GeneratedField[]>;
             deleteForm(formId: string, deleteReports: boolean): Promise<ServiceResult>;
             getFormReportCount(formId: string): Promise<number>;
 
@@ -268,10 +270,22 @@ declare global {
             resetUserPassword(targetUserId: string, newPassword: string): Promise<ServiceResult>;
 
             searchClients(query: string): Promise<Client[]>;
+            getTopClients(limit?: number): Promise<Client[]>;
             getClientById(clientId: string): Promise<Client | null>;
             createClient(input: CreateClientInput): Promise<Client>;
+            updateClient(clientId: string, updates: UpdateClientInput): Promise<ServiceResult>;
+
+            getClientReportCount(clientId: string): Promise<number>;
+            deleteClientOnly(clientId: string): Promise<ServiceResult>;
+            deleteClientWithReports(clientId: string): Promise<ServiceResult>;
+            exportClientReportsZip(clientId: string): Promise<{ success: boolean; zipPath?: string; error?: string }>;
+
             getAllClientTypes(): Promise<ClientType[]>;
+            getAllClientTypeFields(): Promise<{ field_key: string; label: string; data_type: string }[]>;
             getClientTypeFields(clientTypeId: string): Promise<ClientTypeField[]>;
+            createClientType(name: string): Promise<ClientType>;
+            addClientTypeField(clientTypeId: string, input: AddFieldInput): Promise<ClientTypeField>;
+            softDeleteClientTypeField(fieldId: string): Promise<void>;
 
             // Missing Form Methods
             getFormsWithHierarchy(): Promise<any[]>;
@@ -306,6 +320,12 @@ declare global {
         field_values: { field_id: string; value: string }[];
     }
 
+    interface UpdateClientInput {
+        name?: string;
+        category_id?: string | null;
+        field_values?: { field_id: string; value: string }[];
+    }
+
     interface ClientType {
         id: string;
         name: string;
@@ -322,9 +342,13 @@ declare global {
         is_required: number;
         is_deleted: number;
         created_at: string;
-        createClientType(name: string): Promise<ClientType>;
-        addClientTypeField(clientTypeId: string, input: AddFieldInput): Promise<ClientTypeField>;
-        softDeleteClientTypeField(fieldId: string): Promise<void>;
+    }
+
+    interface AddFieldInput {
+        label: string;
+        field_key: string;
+        data_type: string;
+        is_required: number;
     }
 }
 export { };

@@ -66,9 +66,16 @@ contextBridge.exposeInMainWorld('api', {
 
     // Clients
     searchClients: (query: string) => ipcRenderer.invoke('client:search', query),
+    getTopClients: (limit?: number) => ipcRenderer.invoke('client:get-top', limit),
     getClientById: (clientId: string) => ipcRenderer.invoke('client:get-by-id', clientId),
     createClient: (input: any) => ipcRenderer.invoke('client:create', input),
+    updateClient: (clientId: string, updates: any) => ipcRenderer.invoke('client:update', clientId, updates),
+    getClientReportCount: (clientId: string) => ipcRenderer.invoke('client:get-report-count', clientId),
+    deleteClientOnly: (clientId: string) => ipcRenderer.invoke('client:delete-only', clientId),
+    deleteClientWithReports: (clientId: string) => ipcRenderer.invoke('client:delete-with-reports', clientId),
+    exportClientReportsZip: (clientId: string) => ipcRenderer.invoke('client:export-reports-zip', clientId),
     getAllClientTypes: () => ipcRenderer.invoke('client-type:get-all'),
+    getAllClientTypeFields: () => ipcRenderer.invoke('client-type:get-all-fields'),
     getClientTypeFields: (clientTypeId: string) => ipcRenderer.invoke('client-type:get-fields', clientTypeId),
     createClientType: (name: string) => ipcRenderer.invoke('client-type:create', name),
     addClientTypeField: (clientTypeId: string, input: any) => ipcRenderer.invoke('client-type:add-field', clientTypeId, input),

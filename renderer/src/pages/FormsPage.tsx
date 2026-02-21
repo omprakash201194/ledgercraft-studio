@@ -53,7 +53,7 @@ export default function FormsPage() {
     const [totalForms, setTotalForms] = useState(0);
 
     // Filters & Breadcrumbs
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null | undefined>(undefined);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [breadcrumbs, setBreadcrumbs] = useState<{ id: string, name: string }[]>([]);
     const [treeRefreshTrigger, setTreeRefreshTrigger] = useState(0);
     const [showArchived, setShowArchived] = useState(false);
@@ -99,7 +99,7 @@ export default function FormsPage() {
 
     // Load breadcrumbs
     useEffect(() => {
-        if (selectedCategoryId === undefined || selectedCategoryId === null) {
+        if (selectedCategoryId === null) {
             setBreadcrumbs([]);
             return;
         }
@@ -248,7 +248,7 @@ export default function FormsPage() {
                                         color="inherit"
                                         component="button"
                                         variant="body2"
-                                        onClick={() => setSelectedCategoryId(undefined)}
+                                        onClick={() => setSelectedCategoryId(null)}
                                     >
                                         All Forms
                                     </Link>

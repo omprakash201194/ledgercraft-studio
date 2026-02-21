@@ -229,6 +229,35 @@ describe('Client Service', () => {
         expect(fetched.field_values['pan_number']).toBe('ABCDE1234F');
     });
 
+    it('should create client with a category', () => {
+        const cat = createClientCategory('VIP Category');
+
+        const client = createClient({
+            name: 'VIP Client',
+            client_type_id: 'type-1',
+            category_id: cat.id,
+            field_values: []
+        });
+
+        expect(client.category_id).toBe(cat.id);
+        const fetched = getClientById(client.id);
+        expect(fetched?.category_id).toBe(cat.id);
+    });
+
+    it('should update client category correctly', () => {
+        const c1 = createClient({ name: 'Regular Client', client_type_id: 'type-1', field_values: [] });
+        expect(c1.category_id).toBeNull();
+
+        const cat = createClientCategory('New VIP Category');
+
+        updateClient(c1.id, {
+            category_id: cat.id
+        });
+
+        const updated = getClientById(c1.id);
+        expect(updated?.category_id).toBe(cat.id);
+    });
+
     it('should throw error on Duplicate PAN under same client_type_id', () => {
         // 1. Create first client with PAN
         createClient({

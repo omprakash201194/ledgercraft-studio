@@ -280,44 +280,79 @@ const GenerateReportPage: React.FC = () => {
     // ─── Client Selection Logic ─────────────────────────
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
     const [clientSearchQuery, setClientSearchQuery] = useState('');
-    const [clientOptions, setClientOptions] = useState<{ id: string; name: string }[]>([]);
+    const [clientOptions, setClientOptions] = useState<any[]>([]);
     const [loadingClients, setLoadingClients] = useState(false);
-    const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
+    const [selectedClient, setSelectedClient] = useState<any | null>(null);
+    const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+
+    const normalizeKey = (key: string) => key.toLowerCase().trim().replace(/[-\s]+/g, '_');
+
+    const mergeClientPrefill = useCallback((prevValues: Record<string, any>, clientValues: Record<string, string> | undefined, currentFields: FormFieldRecord[]) => {
+        if (!clientValues || currentFields.length === 0) return prevValues;
+
+        const newValues = { ...prevValues };
+        let changed = false;
+
+        const normalizedClientValues: Record<string, string> = {};
+        Object.entries(clientValues).forEach(([k, v]) => {
+            normalizedClientValues[normalizeKey(k)] = v;
+        });
+
+        for (const field of currentFields) {
+            const fieldKey = field.field_key;
+            const normalizedFieldKey = normalizeKey(fieldKey);
+
+            const val = newValues[fieldKey];
+            const isEmpty = val === '' || val === null || val === undefined || val === false;
+
+            if (isEmpty && normalizedClientValues[normalizedFieldKey]) {
+                newValues[fieldKey] = normalizedClientValues[normalizedFieldKey];
+                changed = true;
+            }
+        }
+
+        return changed ? newValues : prevValues;
+    }, []);
 
     // Initial Load for Query Param
     useEffect(() => {
         const initialClientId = queryParams.get('clientId');
-        if (initialClientId) {
+        if (initialClientId && initialClientId !== selectedClientId) {
             handleSelectClient(initialClientId);
         }
-    }, [initialReportId, initialFormId]); // Run once mostly, or when query params change
+    }, [location.search]);
 
-    // Search Clients
+    // Search or Fetch Top Clients
     useEffect(() => {
+        let active = true;
+
         const fetchClients = async () => {
+            if (!clientDropdownOpen && !clientSearchQuery) {
+                return;
+            }
+
             setLoadingClients(true);
             try {
-                // If query is empty, maybe fetch recent? or empty?
-                // The prompt says "Support instant search".
-                // If empty, we might want to show some default or nothing.
-                // Let's search for '' to get some default list if API supports it, or wait for input.
-                // existing searchClients returns empty for empty string.
                 if (!clientSearchQuery) {
-                    setClientOptions([]);
-                    return;
+                    const topClients = await window.api.getTopClients(10);
+                    if (active) setClientOptions(topClients);
+                } else {
+                    const results = await window.api.searchClients(clientSearchQuery);
+                    if (active) setClientOptions(results);
                 }
-                const results = await window.api.searchClients(clientSearchQuery);
-                setClientOptions(results);
             } catch (error) {
-                console.error('Failed to search clients', error);
+                console.error('Failed to load clients', error);
             } finally {
-                setLoadingClients(false);
+                if (active) setLoadingClients(false);
             }
         };
 
         const timeout = setTimeout(fetchClients, 300);
-        return () => clearTimeout(timeout);
-    }, [clientSearchQuery]);
+        return () => {
+            active = false;
+            clearTimeout(timeout);
+        };
+    }, [clientSearchQuery, clientDropdownOpen]);
 
     const handleSelectClient = async (clientId: string | null) => {
         if (!clientId) {
@@ -330,37 +365,26 @@ const GenerateReportPage: React.FC = () => {
             const client = await window.api.getClientById(clientId);
             if (client) {
                 setSelectedClientId(client.id);
-                setSelectedClient({ id: client.id, name: client.name });
-
-                // Prefill Logic
-                if (fields.length > 0) {
-                    setValues(prev => {
-                        const newValues = { ...prev };
-                        let changed = false;
-
-                        for (const field of fields) {
-                            const val = newValues[field.field_key];
-                            // Check if empty
-                            const isEmpty = val === '' || val === null || val === undefined || val === false;
-
-                            if (isEmpty && client.field_values && client.field_values[field.field_key]) {
-                                newValues[field.field_key] = client.field_values[field.field_key];
-                                changed = true;
-                            }
-                        }
-
-                        if (changed) {
-                            setSnackbar({ open: true, message: `Prefilled from ${client.name} (kept existing values)` });
-                        }
-                        return newValues;
-                    });
-                }
+                setSelectedClient(client);
             }
         } catch (error) {
             console.error('Failed to fetch client details', error);
             setSnackbar({ open: true, message: 'Failed to load client details' });
         }
     };
+
+    // Trigger prefill when fields or selectedClient changes
+    useEffect(() => {
+        if (fields.length > 0 && selectedClient?.field_values) {
+            setValues(prev => {
+                const nextValues = mergeClientPrefill(prev, selectedClient.field_values, fields);
+                if (nextValues !== prev) {
+                    setSnackbar(s => ({ ...s, open: true, message: `Prefilled from ${selectedClient.name} (kept existing values)` }));
+                }
+                return nextValues;
+            });
+        }
+    }, [fields, selectedClient, mergeClientPrefill]);
 
 
     // ─── Generate Report ─────────────────────────────────
@@ -621,6 +645,9 @@ const GenerateReportPage: React.FC = () => {
                                             options={clientOptions}
                                             getOptionLabel={(option) => option.name}
                                             value={selectedClient}
+                                            open={clientDropdownOpen}
+                                            onOpen={() => setClientDropdownOpen(true)}
+                                            onClose={() => setClientDropdownOpen(false)}
                                             onChange={(_, newValue) => handleSelectClient(newValue ? newValue.id : null)}
                                             onInputChange={(_, newInputValue) => setClientSearchQuery(newInputValue)}
                                             loading={loadingClients}
