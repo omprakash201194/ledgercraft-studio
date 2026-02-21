@@ -28,6 +28,15 @@ declare global {
         placeholder_count: number;
     }
 
+    interface AnalyzeTemplateResult {
+        canceled: boolean;
+        filePath?: string;
+        originalName?: string;
+        placeholders?: string[];
+        placeholderCount?: number;
+        error?: string;
+    }
+
     interface UploadTemplateResult {
         success: boolean;
         template?: {
@@ -57,6 +66,7 @@ declare global {
             required: boolean;
             placeholder_mapping: string | null;
             options_json: string | null;
+            format_options?: string | null;
         }[];
     }
 
@@ -90,6 +100,7 @@ declare global {
         required: number; // 0 or 1
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }
 
     interface UpdateFormInput {
@@ -105,6 +116,7 @@ declare global {
             required: boolean;
             placeholder_mapping: string | null;
             options_json: string | null;
+            format_options?: string | null;
         }[];
     }
 
@@ -115,11 +127,13 @@ declare global {
         required: boolean;
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }
 
     interface GenerateReportInput {
         form_id: string;
         values: Record<string, string | number | boolean>;
+        client_id?: string;
     }
 
     interface GenerateReportResult {
@@ -140,13 +154,14 @@ declare global {
         generated_at: string;
         form_name: string;
         generated_by_username: string;
+        input_values?: string; // JSON string of input values
     }
 
     interface CategoryNode {
         id: string;
         name: string;
         parent_id: string | null;
-        type: 'TEMPLATE' | 'FORM';
+        type: 'TEMPLATE' | 'FORM' | 'CLIENT';
         created_at: string;
         children: CategoryNode[];
     }
@@ -154,13 +169,13 @@ declare global {
     interface CreateCategoryInput {
         name: string;
         parentId: string | null;
-        type: 'TEMPLATE' | 'FORM';
+        type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     }
 
     interface MoveItemInput {
         itemId: string;
         targetCategoryId: string | null;
-        type: 'TEMPLATE' | 'FORM';
+        type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     }
 
     interface ServiceResult {
@@ -192,6 +207,7 @@ declare global {
         user_id: string;
         theme: 'light' | 'dark';
         date_format: string;
+        client_columns?: string;
         updated_at: string;
     }
 
@@ -217,38 +233,31 @@ declare global {
             getAllUsers: () => Promise<GetAllUsersResult>;
 
             // Templates
-            uploadTemplate(filePath?: string): Promise<UploadTemplateResult>;
+            pickTemplate: () => Promise<AnalyzeTemplateResult>;
+            processTemplateUpload: (filePath: string, autoCreateForm: boolean, categoryId?: string | null) => Promise<{ success: boolean; template?: TemplateRecord; error?: string }>;
             getTemplates(page?: number, limit?: number, categoryId?: string | null): Promise<{ templates: TemplateRecord[]; total: number }>;
             getTemplatePlaceholders: (templateId: string) => Promise<TemplatePlaceholder[]>;
 
             // Forms
             createForm(input: CreateFormInput): Promise<CreateFormResult>;
             updateForm(input: UpdateFormInput): Promise<FormRecord & { fields: FormFieldRecord[] }>;
-            getForms(page?: number, limit?: number, categoryId?: string | null): Promise<{ forms: (FormRecord & { template_name: string; field_count: number })[]; total: number }>;
-            getFormById(formId: string): Promise<FormRecord & { fields: FormFieldRecord[] }>;
+            getForms(page?: number, limit?: number, categoryId?: string | null, includeArchived?: boolean): Promise<{ forms: (FormRecord & { template_name: string; field_count: number })[]; total: number }>;
+            getFormById(formId: string): Promise<FormRecord | null>;
+            updateForm(input: UpdateFormInput): Promise<FormRecord & { fields: FormFieldRecord[] }>;
             getFormFields(formId: string): Promise<FormFieldRecord[]>;
             generateFormFields(templateId: string): Promise<GeneratedField[]>;
-            getFormsWithHierarchy(): Promise<{ id: string; name: string; parent_id: string | null; type: 'CATEGORY' | 'FORM' }[]>;
-            getRecentForms(limit?: number): Promise<(FormRecord & { usage_count: number })[]>;
-            deleteForm: (id: string, deleteReports?: boolean) => Promise<{ success: boolean; error?: string }>;
-            getFormReportCount: (id: string) => Promise<number>;
+            deleteForm(formId: string, deleteReports: boolean): Promise<ServiceResult>;
+            getFormReportCount(formId: string): Promise<number>;
 
-            // Reports
-            generateReport: (input: GenerateReportInput) => Promise<GenerateReportResult>;
-            getReports(page?: number, limit?: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC'): Promise<{ reports: ReportRecord[]; total: number }>;
-            getReportById: (reportId: string) => Promise<ReportRecord>;
-            deleteReport: (reportId: string) => Promise<{ success: boolean; error?: string }>;
-            deleteReports: (reportIds: string[]) => Promise<{ success: boolean; deletedCount?: number; error?: string }>;
-            downloadReport: (filePath: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+            // Categories
+            getCategoryChain(categoryId: string): Promise<{ id: string; name: string }[]>;
+            getCategoryTree(type: 'TEMPLATE' | 'FORM' | 'CLIENT'): Promise<CategoryNode[]>;
+            createCategory(input: CreateCategoryInput): Promise<ServiceResult>;
+            renameCategory(id: string, name: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): Promise<ServiceResult>;
+            deleteCategory(id: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): Promise<ServiceResult>;
+            moveItem(input: MoveItemInput): Promise<ServiceResult>;
 
-            // Categories & Lifecycle
-            getCategoryTree: (type: 'TEMPLATE' | 'FORM') => Promise<CategoryNode[]>;
-            getCategoryChain: (id: string) => Promise<{ id: string; name: string }[]>;
-            createCategory: (input: CreateCategoryInput) => Promise<ServiceResult>;
-            renameCategory: (id: string, newName: string) => Promise<ServiceResult>;
-            deleteCategory: (id: string, type: 'TEMPLATE' | 'FORM') => Promise<ServiceResult>;
-            moveItem: (input: MoveItemInput) => Promise<ServiceResult>;
-            deleteTemplate: (id: string) => Promise<ServiceResult>;
+            deleteTemplate: (id: string, force?: boolean) => Promise<ServiceResult & { usageCount?: number }>;
 
             // Shell
             openFile: (filePath: string) => Promise<string>;
@@ -258,6 +267,88 @@ declare global {
 
             getUserPreferences(userId: string): Promise<UserPreferences>;
             updateUserPreferences(userId: string, prefs: Partial<UserPreferences>): Promise<UserPreferences>;
+            resetUserPassword(targetUserId: string, newPassword: string): Promise<ServiceResult>;
+
+            searchClients(query: string): Promise<Client[]>;
+            getTopClients(limit?: number): Promise<Client[]>;
+            getClientById(clientId: string): Promise<Client | null>;
+            createClient(input: CreateClientInput): Promise<Client>;
+            updateClient(clientId: string, updates: UpdateClientInput): Promise<ServiceResult>;
+
+            getClientReportCount(clientId: string): Promise<number>;
+            deleteClientOnly(clientId: string): Promise<ServiceResult>;
+            deleteClientWithReports(clientId: string): Promise<ServiceResult>;
+            exportClientReportsZip(clientId: string): Promise<{ success: boolean; zipPath?: string; error?: string }>;
+
+            getAllClientTypes(): Promise<ClientType[]>;
+            getAllClientTypeFields(): Promise<{ field_key: string; label: string; data_type: string }[]>;
+            getClientTypeFields(clientTypeId: string): Promise<ClientTypeField[]>;
+            createClientType(name: string): Promise<ClientType>;
+            addClientTypeField(clientTypeId: string, input: AddFieldInput): Promise<ClientTypeField>;
+            softDeleteClientTypeField(fieldId: string): Promise<void>;
+
+            // Missing Form Methods
+            getFormsWithHierarchy(): Promise<any[]>;
+            getRecentForms(limit?: number): Promise<FormRecord[]>;
+
+            // Missing Report Methods
+            generateReport(input: GenerateReportInput): Promise<GenerateReportResult>;
+            getReports(page: number, limit: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', clientId?: string): Promise<{ reports: any[], total: number }>;
+
+            getReportById(reportId: string): Promise<ReportRecord | null>;
+            deleteReport(reportId: string): Promise<ServiceResult>;
+            deleteReports(reportIds: string[]): Promise<ServiceResult>;
+            downloadReport(filePath: string): Promise<{ canceled: boolean; filePath?: string; error?: string }>;
         };
     }
+
+    interface Client {
+        id: string;
+        name: string;
+        client_type_id: string;
+        category_id: string | null;
+        is_deleted: number;
+        created_at: string;
+        updated_at: string;
+        field_values?: Record<string, string>;
+    }
+
+    interface CreateClientInput {
+        name: string;
+        client_type_id: string;
+        category_id?: string | null;
+        field_values: { field_id: string; value: string }[];
+    }
+
+    interface UpdateClientInput {
+        name?: string;
+        category_id?: string | null;
+        field_values?: { field_id: string; value: string }[];
+    }
+
+    interface ClientType {
+        id: string;
+        name: string;
+        created_at: string;
+        updated_at: string;
+    }
+
+    interface ClientTypeField {
+        id: string;
+        client_type_id: string;
+        label: string;
+        field_key: string;
+        data_type: string;
+        is_required: number;
+        is_deleted: number;
+        created_at: string;
+    }
+
+    interface AddFieldInput {
+        label: string;
+        field_key: string;
+        data_type: string;
+        is_required: number;
+    }
 }
+export { };

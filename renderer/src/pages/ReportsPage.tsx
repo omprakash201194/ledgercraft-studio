@@ -381,7 +381,7 @@ const ReportsPage: React.FC = () => {
                                                             <Link
                                                                 component="button"
                                                                 variant="body2"
-                                                                onClick={() => navigate(`/ generate - report ? formId = ${report.form_id}& reportId=${report.id} `)}
+                                                                onClick={() => navigate(`/generate-report?formId=${report.form_id}&reportId=${report.id}`)}
                                                                 sx={{ fontWeight: 'bold', textDecoration: 'none' }}
                                                             >
                                                                 {report.form_name}

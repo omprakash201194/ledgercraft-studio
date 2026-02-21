@@ -4,6 +4,7 @@ export interface UserPreferences {
     user_id: string;
     theme: 'light' | 'dark';
     date_format: string;
+    client_columns?: string;
     updated_at: string;
 }
 
@@ -11,6 +12,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     user_id: '',
     theme: 'light',
     date_format: 'DD-MM-YYYY',
+    client_columns: '[]',
     updated_at: new Date().toISOString()
 };
 
@@ -39,14 +41,14 @@ export function updateUserPreferences(userId: string, preferences: Partial<UserP
     if (exists) {
         db.prepare(`
             UPDATE user_preferences 
-            SET theme = ?, date_format = ?, updated_at = ?
+            SET theme = ?, date_format = ?, client_columns = ?, updated_at = ?
             WHERE user_id = ?
-        `).run(updated.theme, updated.date_format, updated.updated_at, userId);
+        `).run(updated.theme, updated.date_format, updated.client_columns || '[]', updated.updated_at, userId);
     } else {
         db.prepare(`
-            INSERT INTO user_preferences (user_id, theme, date_format, updated_at)
-            VALUES (?, ?, ?, ?)
-        `).run(userId, updated.theme, updated.date_format, updated.updated_at);
+            INSERT INTO user_preferences (user_id, theme, date_format, client_columns, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(userId, updated.theme, updated.date_format, updated.client_columns || '[]', updated.updated_at);
     }
 
     return updated;

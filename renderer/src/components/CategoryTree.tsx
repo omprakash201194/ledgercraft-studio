@@ -35,16 +35,17 @@ interface CategoryNode {
     id: string;
     name: string;
     parent_id: string | null;
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     children: CategoryNode[];
 }
 
 interface CategoryTreeProps {
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
     selectedCategoryId: string | null;
     onSelectCategory: (categoryId: string | null) => void;
     refreshTrigger: number;
     readOnly?: boolean;
+    onDataChange?: () => void;
 }
 
 // ─── Styled Components ───────────────────────────────────
@@ -74,6 +75,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
     onSelectCategory,
     refreshTrigger,
     readOnly = false,
+    onDataChange
 }) => {
     const theme = useTheme();
     const [tree, setTree] = useState<CategoryNode[]>([]);
@@ -150,6 +152,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
                 onSelectCategory(null);
             }
             loadTree();
+            if (onDataChange) onDataChange();
         } else {
             alert(result.error);
         }
@@ -169,6 +172,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
             if (targetCategory) {
                 setExpandedIds((prev) => [...prev, targetCategory.id]);
             }
+            if (onDataChange) onDataChange();
         } else {
             alert(result.error);
         }
@@ -177,10 +181,11 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
     const submitRename = async () => {
         if (!targetCategory) return;
 
-        const result = await window.api.renameCategory(targetCategory.id, categoryName);
+        const result = await window.api.renameCategory(targetCategory.id, categoryName, type);
         if (result.success) {
             setRenameDialogOpen(false);
             loadTree();
+            if (onDataChange) onDataChange();
         } else {
             alert(result.error);
         }
@@ -211,7 +216,6 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
                         )}
                     </Box>
                 }
-                onClick={() => onSelectCategory(node.id)}
             >
                 {Array.isArray(node.children) ? renderTree(node.children) : null}
             </TreeItem>
@@ -236,12 +240,12 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
                 <SimpleTreeView
                     expandedItems={expandedIds}
                     onExpandedItemsChange={(event, itemIds) => setExpandedIds(itemIds)}
-                    selectedItems={selectedCategoryId || ''}
+                    selectedItems={(selectedCategoryId === null || selectedCategoryId === undefined) ? 'root' : selectedCategoryId}
+                    onSelectedItemsChange={(event, itemId) => onSelectCategory(itemId === 'root' ? null : itemId)}
                 >
                     <TreeItem
                         itemId="root"
                         label="All Items"
-                        onClick={() => onSelectCategory(null)}
                         sx={{
                             '& .MuiTreeItem-content': {
                                 py: 1,

@@ -102,8 +102,8 @@ const AnalyticsPage: React.FC = () => {
                 <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 2 }}>
                         <Typography variant="h6" gutterBottom>Reports by User</Typography>
-                        <Box sx={{ height: 300 }}>
-                            <ResponsiveContainer width="100%" height="100%">
+                        <Box sx={{ height: 300, width: '100%' }}>
+                            <ResponsiveContainer width="100%" minWidth={0}>
                                 <BarChart data={stats.reportsByUser}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
@@ -120,8 +120,8 @@ const AnalyticsPage: React.FC = () => {
                 <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 2 }}>
                         <Typography variant="h6" gutterBottom>Top Forms</Typography>
-                        <Box sx={{ height: 300 }}>
-                            <ResponsiveContainer width="100%" height="100%">
+                        <Box sx={{ height: 300, width: '100%' }}>
+                            <ResponsiveContainer width="100%" minWidth={0}>
                                 <BarChart data={stats.topForms} layout="vertical">
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis type="number" />
@@ -138,8 +138,8 @@ const AnalyticsPage: React.FC = () => {
                 <Grid item xs={12}>
                     <Paper sx={{ p: 2 }}>
                         <Typography variant="h6" gutterBottom>Monthly Reporting Trend (Last 6 Months)</Typography>
-                        <Box sx={{ height: 300 }}>
-                            <ResponsiveContainer width="100%" height="100%">
+                        <Box sx={{ height: 300, width: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                 <AreaChart data={stats.monthlyTrend}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />

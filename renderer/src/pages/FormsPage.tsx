@@ -26,7 +26,9 @@ import {
     DialogContentText,
     TablePagination,
     Grid,
-    Fade
+    Fade,
+    Switch,
+    FormControlLabel
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
@@ -51,33 +53,36 @@ export default function FormsPage() {
     const [totalForms, setTotalForms] = useState(0);
 
     // Filters & Breadcrumbs
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null | undefined>(undefined);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [breadcrumbs, setBreadcrumbs] = useState<{ id: string, name: string }[]>([]);
     const [treeRefreshTrigger, setTreeRefreshTrigger] = useState(0);
+    const [showArchived, setShowArchived] = useState(false);
 
-    // Wizard
+    // Dialog & Menu State
     const [wizardOpen, setWizardOpen] = useState(false);
     const [editFormId, setEditFormId] = useState<string | null>(null);
-
-    // Delete Dialog
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<FormRecord | null>(null);
-    const [deleteReportCount, setDeleteReportCount] = useState<number | null>(null);
-
-    // View Fields
     const [viewingForm, setViewingForm] = useState<FormRecord | null>(null);
-    const [formFields, setFormFields] = useState<FormFieldRecord[]>([]);
     const [loadingFields, setLoadingFields] = useState(false);
-
-    // Menu
+    const [formFields, setFormFields] = useState<any[]>([]);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [menuTarget, setMenuTarget] = useState<FormRecord | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<FormRecord | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleteReportCount, setDeleteReportCount] = useState(0);
+
+    // Move Dialog
+    const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [moveTargetCategoryId, setMoveTargetCategoryId] = useState<string | null>(null);
+    const [itemToMove, setItemToMove] = useState<FormRecord | null>(null);
+
+    // Date preferences
+    const [dateFormat] = useState('DD-MM-YYYY');
 
     // Load Data
     const loadForms = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await window.api.getForms(page + 1, rowsPerPage, selectedCategoryId);
+            const result = await window.api.getForms(page + 1, rowsPerPage, selectedCategoryId, showArchived);
             setForms(result.forms);
             setTotalForms(result.total);
             setLoading(false);
@@ -85,11 +90,15 @@ export default function FormsPage() {
             setError('Failed to load forms.');
             setLoading(false);
         }
-    }, [page, rowsPerPage, selectedCategoryId]);
+    }, [page, rowsPerPage, selectedCategoryId, showArchived]);
+
+    // Initial load
+    useEffect(() => {
+        loadForms();
+    }, [loadForms]);
 
     // Load breadcrumbs
     useEffect(() => {
-        if (selectedCategoryId === undefined) return;
         if (selectedCategoryId === null) {
             setBreadcrumbs([]);
             return;
@@ -98,15 +107,6 @@ export default function FormsPage() {
             .then(setBreadcrumbs)
             .catch(() => setBreadcrumbs([]));
     }, [selectedCategoryId]);
-
-    // Move Dialog
-    const [moveDialogOpen, setMoveDialogOpen] = useState(false);
-    const [moveTargetCategoryId, setMoveTargetCategoryId] = useState<string | null>(null);
-    const [itemToMove, setItemToMove] = useState<FormRecord | null>(null);
-
-    useEffect(() => {
-        loadForms();
-    }, [loadForms]);
 
     // Handlers
     const handleCreate = () => {
@@ -207,66 +207,53 @@ export default function FormsPage() {
         setItemToDelete(null);
     }
 
-    const [dateFormat, setDateFormat] = useState('DD-MM-YYYY');
-    const { user } = window.api ? { user: { id: 'dummy' } } : { user: null }; // Mock or useAuth if available
-
-    useEffect(() => {
-        // Fetch date format preference if needed or use default
-        // window.api.getUserPreferences...
-    }, []);
-
     return (
         <Fade in timeout={500}>
             <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h5">Forms</Typography>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={handleCreate}
-                    >
-                        Create Form
-                    </Button>
+                    <Box display="flex" gap={2}>
+                        <FormControlLabel
+                            control={<Switch checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />}
+                            label="Show Archived"
+                        />
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={handleCreate}
+                        >
+                            Create Form
+                        </Button>
+                    </Box>
                 </Box>
 
-                {error && <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>{error}</Alert>}
-                {success && <Alert severity="success" onClose={() => setSuccess(null)} sx={{ mb: 2 }}>{success}</Alert>}
+                {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+                {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
 
-                <Grid container spacing={2} sx={{ flexGrow: 1, minHeight: 0 }}>
-                    {/* Left Panel: Category Tree */}
-                    <Grid item xs={12} md={3} sx={{ height: '100%' }}>
+                <Grid container spacing={2} sx={{ flexGrow: 1, overflow: 'hidden' }}>
+                    <Grid item xs={12} md={3} sx={{ height: '100%', overflow: 'auto', borderRight: '1px solid rgba(0,0,0,0.12)' }}>
                         <CategoryTree
                             type="FORM"
                             onSelectCategory={setSelectedCategoryId}
+                            selectedCategoryId={selectedCategoryId}
                             refreshTrigger={treeRefreshTrigger}
-                            selectedCategoryId={selectedCategoryId ?? null}
                         />
                     </Grid>
 
-                    {/* Right Panel: Content */}
-                    <Grid item xs={12} md={9} sx={{ height: '100%', overflow: 'hidden' }}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                height: '100%',
-                                border: '1px solid #e0e0e0', // theme.palette.divider hardcoded or use theme
-                                display: 'flex',
-                                flexDirection: 'column',
-                            }}
-                        >
-                            {/* Breadcrumbs */}
-                            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #e0e0e0', backgroundColor: '#f5f5f5' }}> {/* match theme.palette.action.hover if possible */}
+                    <Grid item xs={12} md={9} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <Paper sx={{ width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                            <Box p={2}>
                                 <Breadcrumbs aria-label="breadcrumb">
                                     <Link
                                         color="inherit"
-                                        underline="hover"
+                                        component="button"
+                                        variant="body2"
                                         onClick={() => setSelectedCategoryId(null)}
-                                        sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                     >
-                                        <Typography variant="body2">All Forms</Typography>
+                                        All Forms
                                     </Link>
-                                    {breadcrumbs.map((crumb, index) => (
-                                        <Typography key={crumb.id} color={index === breadcrumbs.length - 1 ? 'text.primary' : 'inherit'} variant="body2">
+                                    {breadcrumbs.map((crumb) => (
+                                        <Typography key={crumb.id} color="text.primary" variant="body2">
                                             {crumb.name}
                                         </Typography>
                                     ))}
@@ -274,13 +261,13 @@ export default function FormsPage() {
                             </Box>
 
                             <TableContainer sx={{ flexGrow: 1 }}>
-                                <Table stickyHeader>
+                                <Table stickyHeader aria-label="forms table">
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>Name</TableCell>
+                                            <TableCell>Form Name</TableCell>
                                             <TableCell>Template</TableCell>
                                             <TableCell>Fields</TableCell>
-                                            <TableCell>Created At</TableCell>
+                                            <TableCell>Created Date</TableCell>
                                             <TableCell align="right">Actions</TableCell>
                                         </TableRow>
                                     </TableHead>
@@ -301,13 +288,14 @@ export default function FormsPage() {
                                             </TableRow>
                                         ) : (
                                             forms.map((form) => (
-                                                <TableRow key={form.id} hover onClick={() => handleViewFields(form)} sx={{ cursor: 'pointer' }}>
+                                                <TableRow key={form.id} hover onClick={() => handleViewFields(form)} sx={{ cursor: 'pointer', opacity: (form as any).is_deleted ? 0.6 : 1 }}>
                                                     <TableCell>
                                                         <Box display="flex" alignItems="center">
-                                                            <DescriptionIcon color="primary" sx={{ mr: 1, fontSize: 20 }} />
-                                                            <Typography variant="body2">
+                                                            <DescriptionIcon color={(form as any).is_deleted ? 'disabled' : 'primary'} sx={{ mr: 1, fontSize: 20 }} />
+                                                            <Typography variant="body2" sx={{ textDecoration: (form as any).is_deleted ? 'line-through' : 'none' }}>
                                                                 {form.name}
                                                             </Typography>
+                                                            {(form as any).is_deleted === 1 && <Chip label="Archived" size="small" sx={{ ml: 1, height: 20 }} />}
                                                         </Box>
                                                     </TableCell>
                                                     <TableCell>{form.template_name}</TableCell>

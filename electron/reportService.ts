@@ -6,12 +6,16 @@ import { app } from 'electron';
 import { database } from './database';
 import { getCurrentUser } from './auth';
 import { logAction } from './auditService';
+import { applyFieldFormatting, FieldFormatOptions } from './utils/applyFieldFormatting';
+import { getClientById } from './clientService';
+import { mergeClientPrefill } from './utils/mergeClientPrefill';
 
 // ─── Types ───────────────────────────────────────────────
 
 export interface GenerateReportInput {
     form_id: string;
     values: Record<string, string | number | boolean>;
+    client_id?: string;
 }
 
 export interface GenerateReportResult {
@@ -28,6 +32,7 @@ export interface GenerateReportResult {
 
 /**
  * Generate a Word document report by filling a template with form values.
+ * Supports optional client_id to prefill values from Client Master.
  */
 export function generateReport(input: GenerateReportInput): GenerateReportResult {
     const currentUser = getCurrentUser();
@@ -45,19 +50,43 @@ export function generateReport(input: GenerateReportInput): GenerateReportResult
         // 2. Get form fields to map values to placeholders
         const fields = database.getFormFields(input.form_id);
 
+        // 3a. If client_id provided, fetch and merge values
+        let finalValues = { ...input.values };
+        if (input.client_id) {
+            const client = getClientById(input.client_id);
+            if (client && client.field_values) {
+                // client.field_values is Record<string, string> (field_key -> value)
+                finalValues = mergeClientPrefill(input.values, client.field_values);
+            }
+        }
+
         // 3. Build placeholder→value map
         const placeholderValues: Record<string, string> = {};
         for (const field of fields) {
             if (field.placeholder_mapping) {
-                const value = input.values[field.field_key];
-                placeholderValues[field.placeholder_mapping] = value != null ? String(value) : '';
+                const rawValue = finalValues[field.field_key];
+
+                // Apply formatting if format_options exists
+                let formattedValue: string;
+                if (field.format_options) {
+                    try {
+                        const formatOptions: FieldFormatOptions = JSON.parse(field.format_options);
+                        formattedValue = applyFieldFormatting(rawValue, field.data_type, formatOptions);
+                    } catch (error) {
+                        // If JSON parsing fails, fall back to plain string conversion
+                        console.error('[Report] Failed to parse format_options:', error);
+                        formattedValue = rawValue != null ? String(rawValue) : '';
+                    }
+                } else {
+                    // No format_options - behave exactly as before
+                    formattedValue = rawValue != null ? String(rawValue) : '';
+                }
+
+                placeholderValues[field.placeholder_mapping] = formattedValue;
             }
         }
 
         // 4. Load the template .docx file
-        // Get template file path from DB
-        // 4. Load the template .docx file
-        // Get template file path from DB
         const template = database.getTemplateById(form.template_id);
         if (!template) {
             return { success: false, error: 'Template file not found' };
@@ -105,7 +134,8 @@ export function generateReport(input: GenerateReportInput): GenerateReportResult
             form_id: form.id,
             generated_by: currentUser.id,
             file_path: filePath,
-            input_values: JSON.stringify(input.values),
+            input_values: JSON.stringify(finalValues), // Store merged values
+            client_id: input.client_id
         });
 
         if (currentUser) {
@@ -156,8 +186,6 @@ export function deleteReport(reportId: string): { success: boolean; error?: stri
                 fs.unlinkSync(report.file_path);
             } catch (err) {
                 console.error(`[Report] Failed to delete file ${report.file_path}:`, err);
-                // Continue to delete from DB even if file delete fails (or maybe not?)
-                // Let's log it but proceed to clean up DB
             }
         }
 
@@ -210,15 +238,20 @@ export function deleteReports(reportIds: string[]): { success: boolean; error?: 
 /**
  * Get reports — ADMIN sees all, USER sees own.
  */
-export function getReports(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC') {
+export function getReports(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC', clientId?: string) {
     const currentUser = getCurrentUser();
     if (!currentUser) return { reports: [], total: 0 };
 
     if (currentUser.role === 'ADMIN') {
-        return database.getReportsWithDetails(page, limit, formId, search, sortBy, sortOrder);
+        return database.getReportsWithDetails(page, limit, formId, search, sortBy, sortOrder, clientId);
     }
 
     // User - fetch all sorted then slice
+    // Users only see their own reports, so client filter (if passed) is ignored or we could implement it if needed.
+    // But currently Client Page is ADMIN ONLY feature (implied by "Admin-only: Add Delete Client button").
+    // The requirement "3. Add section 'Reports History'" implies this page is for managing clients, likely Admin feature.
+    // If a normal user could see ClientsPage, they might need this filter.
+    // But for now, let's just pass it to admin flow.
     const allReports = database.getReportsByUser(currentUser.id, sortBy, sortOrder);
     // basic in-memory pagination for user
     const start = (page - 1) * limit;
@@ -228,4 +261,3 @@ export function getReports(page: number = 1, limit: number = 10, formId?: string
         total: allReports.length
     };
 }
-

@@ -4,6 +4,7 @@ import { login, logout, tryAutoLogin, getCurrentUser, createUser } from '../auth
 import { database } from '../database';
 import { SafeUser } from '../auth';
 import { uploadTemplate, getTemplates, getTemplatePlaceholders } from '../templateService';
+import { extractPlaceholders } from '../templateUtils';
 import { createForm, getForms, getFormById, getFormFields, updateForm, generateFieldsFromTemplate, deleteForm, CreateFormInput, UpdateFormInput } from '../formService';
 import { generateReport, getReports, deleteReport, deleteReports, GenerateReportInput } from '../reportService';
 import { getAuditLogs, getAnalytics } from '../auditService';
@@ -20,6 +21,8 @@ import {
     MoveItemInput
 } from '../categoryService';
 import { exportBackup, restoreBackup } from '../backupService';
+import { searchClients, getClientById, createClient, updateClient, getReportCountByClient, deleteClientOnly, deleteClientWithReports, exportClientReportsZip, getTopClients } from '../clientService';
+import { getAllClientTypes, getClientTypeFields, createClientType } from '../clientTypeService';
 
 /**
  * Register all IPC handlers.
@@ -29,7 +32,7 @@ export function registerIpcHandlers(): void {
     // ... existing handlers ...
 
     // ─── Categories & Lifecycle ──────────────────────────
-    ipcMain.handle('category:get-tree', (_event, type: 'TEMPLATE' | 'FORM') => {
+    ipcMain.handle('category:get-tree', (_event, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => {
         return getCategoryTree(type);
     });
 
@@ -41,11 +44,11 @@ export function registerIpcHandlers(): void {
         return createCategory(input);
     });
 
-    ipcMain.handle('category:rename', (_event, id: string, newName: string) => {
-        return renameCategory(id, newName);
+    ipcMain.handle('category:rename', (_event, id: string, newName: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => {
+        return renameCategory(id, newName, type);
     });
 
-    ipcMain.handle('category:delete', (_event, id: string, type: 'TEMPLATE' | 'FORM') => {
+    ipcMain.handle('category:delete', (_event, id: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT') => {
         return deleteCategory(id, type);
     });
 
@@ -53,8 +56,8 @@ export function registerIpcHandlers(): void {
         return moveItem(input);
     });
 
-    ipcMain.handle('template:delete', (_event, id: string) => {
-        return deleteTemplate(id);
+    ipcMain.handle('template:delete', (_event, id: string, force: boolean = false) => {
+        return deleteTemplate(id, force);
     });
 
     ipcMain.handle('form:delete', (_event, formId: string, deleteReports: boolean = false) => {
@@ -149,8 +152,16 @@ export function registerIpcHandlers(): void {
         return { success: true, users: safeUsers };
     });
 
+    ipcMain.handle('auth:reset-password', (_event, targetUserId: string, newPassword: string) => {
+        // dynamic import or move import to top if circular dependency issues arise, 
+        // but here we imported it effectively at the top of the file
+        const { resetUserPassword } = require('../auth');
+        return resetUserPassword(targetUserId, newPassword);
+    });
+
     // ─── Templates ───────────────────────────────────────
-    ipcMain.handle('template:upload', async (_event) => {
+    // Updated: Split into Pick/Analyze and Process
+    ipcMain.handle('template:pick-analyze', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
             title: 'Select Template',
             filters: [{ name: 'Word Documents', extensions: ['docx'] }],
@@ -158,23 +169,60 @@ export function registerIpcHandlers(): void {
         });
 
         if (canceled || filePaths.length === 0) {
-            return { success: false, error: 'No file selected' };
+            return { canceled: true };
         }
 
         try {
             const filePath = filePaths[0];
             const fileBuffer = fs.readFileSync(filePath);
             const originalName = filePath.split(/[\\/]/).pop() || 'template.docx';
+            const placeholders = extractPlaceholders(fileBuffer);
 
-            return uploadTemplate(fileBuffer, originalName);
+            return {
+                canceled: false,
+                filePath,
+                originalName,
+                placeholders,
+                placeholderCount: placeholders.length
+            };
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            return { canceled: false, error: `Analysis failed: ${message}` };
+        }
+    });
+
+    ipcMain.handle('template:process-upload', async (_event, filePath: string, ...args: any[]) => {
+        try {
+            if (!fs.existsSync(filePath)) {
+                return { success: false, error: 'File no longer exists' };
+            }
+            const fileBuffer = fs.readFileSync(filePath);
+            const originalName = filePath.split(/[\\/]/).pop() || 'template.docx';
+
+            let autoCreateForm = false;
+            let categoryId: string | null = null;
+
+            // Handle arguments: either (boolean, categoryId?) OR ({ autoCreateForm, categoryId })
+            if (args.length > 0) {
+                if (typeof args[0] === 'object' && args[0] !== null) {
+                    const options = args[0];
+                    autoCreateForm = !!options.autoCreateForm;
+                    categoryId = options.categoryId || null;
+                } else if (typeof args[0] === 'boolean') {
+                    autoCreateForm = args[0];
+                    categoryId = args[1] || null;
+                }
+            }
+
+            return uploadTemplate(fileBuffer, originalName, autoCreateForm, categoryId);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Unknown error';
             return { success: false, error: `Upload failed: ${message}` };
         }
     });
 
-    ipcMain.handle('template:get-all', (_event, page: number = 1, limit: number = 10) => {
-        return database.getTemplates(page, limit);
+    ipcMain.handle('template:get-all', (_event, page: number = 1, limit: number = 10, categoryId?: string | null) => {
+        return database.getTemplates(page, limit, categoryId);
     });
 
     ipcMain.handle('template:get-placeholders', (_event, templateId: string) => {
@@ -190,8 +238,8 @@ export function registerIpcHandlers(): void {
         return updateForm(input);
     });
 
-    ipcMain.handle('form:get-all', (_event, page: number = 1, limit: number = 10) => {
-        return database.getFormsWithDetails(page, limit);
+    ipcMain.handle('form:get-all', (_event, page: number = 1, limit: number = 10, categoryId?: string | null, includeArchived: boolean = false) => {
+        return database.getFormsWithDetails(page, limit, categoryId, includeArchived);
     });
 
     ipcMain.handle('form:get-by-id', (_event, formId: string) => {
@@ -219,11 +267,11 @@ export function registerIpcHandlers(): void {
         return generateReport(input);
     });
 
-    ipcMain.handle('report:get-all', (_event, page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC') => {
+    ipcMain.handle('report:get-all', (_event, page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', clientId?: string) => {
 
         const safeSortBy = sortBy || 'generated_at';
         const safeSortOrder = sortOrder || 'DESC';
-        return getReports(page, limit, formId, search, safeSortBy, safeSortOrder);
+        return getReports(page, limit, formId, search, safeSortBy, safeSortOrder, clientId);
     });
 
     ipcMain.handle('report:get-by-id', (_event, reportId: string) => {
@@ -284,6 +332,102 @@ export function registerIpcHandlers(): void {
 
     ipcMain.handle('prefs:update', (_event, userId: string, prefs: any) => {
         return updateUserPreferences(userId, prefs);
+    });
+
+    // ─── Clients ─────────────────────────────────────────
+    ipcMain.handle('client:search', (_event, query: string) => {
+        return searchClients(query);
+    });
+
+    ipcMain.handle('client:get-by-id', (_event, clientId: string) => {
+        return getClientById(clientId);
+    });
+
+    ipcMain.handle('client:create', (_event, input: any) => {
+        return createClient(input);
+    });
+
+    ipcMain.handle('client:get-top', (_event, limit?: number) => {
+        return getTopClients(limit || 10);
+    });
+
+    ipcMain.handle('client:update', (_event, clientId: string, updates: any) => {
+        try {
+            updateClient(clientId, updates);
+            return { success: true };
+        } catch (error: any) {
+            console.error('IPC update-client err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('client:get-report-count', (_event, clientId: string) => {
+        try {
+            return getReportCountByClient(clientId);
+        } catch (error: any) {
+            console.error('IPC get-report-count err:', error);
+            return 0;
+        }
+    });
+
+    ipcMain.handle('client:delete-only', (_event, clientId: string) => {
+        const currentUser = getCurrentUser();
+        try {
+            deleteClientOnly(clientId, currentUser?.role || '');
+            return { success: true };
+        } catch (error: any) {
+            console.error('IPC delete-only err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('client:delete-with-reports', (_event, clientId: string) => {
+        const currentUser = getCurrentUser();
+        try {
+            deleteClientWithReports(clientId, currentUser?.role || '');
+            return { success: true };
+        } catch (error: any) {
+            console.error('IPC delete-with-reports err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('client:export-reports-zip', (_event, clientId: string) => {
+        const currentUser = getCurrentUser();
+        try {
+            const zipPath = exportClientReportsZip(clientId, currentUser?.role || '');
+            return { success: true, zipPath };
+        } catch (error: any) {
+            console.error('IPC export-reports-zip err:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('client-type:get-all', () => {
+        return getAllClientTypes();
+    });
+
+    ipcMain.handle('client-type:get-fields', (_event, clientTypeId: string) => {
+        return getClientTypeFields(clientTypeId);
+    });
+
+    ipcMain.handle('client-type:get-all-fields', () => {
+        const { getAllClientTypeFields } = require('../clientTypeService');
+        return getAllClientTypeFields();
+    });
+
+    ipcMain.handle('client-type:create', (_event, name: string) => {
+        return createClientType(name);
+    });
+
+    ipcMain.handle('client-type:add-field', (_event, clientTypeId: string, input: any) => {
+        const { addClientTypeField } = require('../clientTypeService');
+        return addClientTypeField(clientTypeId, input);
+    });
+
+    ipcMain.handle('client-type:delete-field', (_event, fieldId: string) => {
+        const { softDeleteClientTypeField } = require('../clientTypeService');
+        return softDeleteClientTypeField(fieldId);
     });
 }
 

@@ -94,41 +94,45 @@ export function getAuditLogs(page = 1, pageSize = 50, filters?: any): { logs: Au
 export function getAnalytics(): AnalyticsStats {
     const db = database.getConnection();
 
-    // Total Reports (Active)
-    const totalReports = (db.prepare('SELECT COUNT(*) as count FROM reports').get() as { count: number }).count;
+    // 1. Total Reports Generated (Historical)
+    // Count all 'REPORT_GENERATE' actions in audit_logs
+    const totalReports = (db.prepare("SELECT COUNT(*) as count FROM audit_logs WHERE action_type = 'REPORT_GENERATE'").get() as { count: number }).count;
 
-    // Deleted Reports (from Audit Logs)
+    // 2. Deleted Reports (Historical)
     const deletedReports = (db.prepare("SELECT COUNT(*) as count FROM audit_logs WHERE action_type = 'REPORT_DELETE'").get() as { count: number }).count;
 
-    // Reports This Month
+    // 3. Reports This Month (Historical)
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
-    const reportsThisMonth = (db.prepare('SELECT COUNT(*) as count FROM reports WHERE generated_at >= ?').get(startOfMonth.toISOString()) as { count: number }).count;
+    const reportsThisMonth = (db.prepare("SELECT COUNT(*) as count FROM audit_logs WHERE action_type = 'REPORT_GENERATE' AND created_at >= ?").get(startOfMonth.toISOString()) as { count: number }).count;
 
-    // Reports By User
+    // 4. Reports By User (Historical)
+    // Join audit_logs with users to get username
     const reportsByUser = db.prepare(`
-        SELECT u.username as name, COUNT(r.id) as value
-        FROM reports r
-        JOIN users u ON r.generated_by = u.id
+        SELECT u.username as name, COUNT(a.id) as value
+        FROM audit_logs a
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE a.action_type = 'REPORT_GENERATE'
         GROUP BY u.username
     `).all() as { name: string; value: number }[];
 
-    // Top Forms
+    // 5. Top Forms (Historical)
+    // Extract form name from metadata_json
     const topForms = db.prepare(`
-        SELECT f.name as name, COUNT(r.id) as value
-        FROM reports r
-        JOIN forms f ON r.form_id = f.id
-        GROUP BY f.name
+        SELECT json_extract(metadata_json, '$.formName') as name, COUNT(*) as value
+        FROM audit_logs
+        WHERE action_type = 'REPORT_GENERATE' AND name IS NOT NULL
+        GROUP BY name
         ORDER BY value DESC
         LIMIT 5
     `).all() as { name: string; value: number }[];
 
-    // Monthly Trend (Last 6 months)
-    // SQLite doesn't have great date functions built-in for formatting, so we might need to process in JS or use strftime
+    // 6. Monthly Trend (Historical)
     const monthlyTrend = db.prepare(`
-        SELECT strftime('%Y-%m', generated_at) as name, COUNT(*) as value
-        FROM reports
+        SELECT strftime('%Y-%m', created_at) as name, COUNT(*) as value
+        FROM audit_logs
+        WHERE action_type = 'REPORT_GENERATE'
         GROUP BY name
         ORDER BY name DESC
         LIMIT 6

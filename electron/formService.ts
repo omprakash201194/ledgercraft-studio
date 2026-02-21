@@ -16,6 +16,7 @@ export interface CreateFormInput {
         required: boolean;
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }[];
 }
 
@@ -69,6 +70,7 @@ export function createForm(input: CreateFormInput): CreateFormResult {
             required: f.required ? 1 : 0,
             placeholder_mapping: f.placeholder_mapping || null,
             options_json: f.options_json || null,
+            format_options: f.format_options || null,
         }));
 
         const form = database.createForm(
@@ -142,6 +144,15 @@ export function deleteForm(formId: string, deleteReports: boolean = false): { su
                         console.error(`[FormService] Failed to delete report file ${report.file_path}`, e);
                     }
                 }
+
+                // Log the deletion for analytics
+                logAction({
+                    userId: currentUser.id,
+                    actionType: 'REPORT_DELETE',
+                    entityType: 'REPORT',
+                    entityId: report.id,
+                    metadata: { formId: formId, cascade: true }
+                });
             }
 
             // Now we can hard delete form (and reports will be CASCADE deleted in DB or we delete them manually)
@@ -181,8 +192,8 @@ export function deleteForm(formId: string, deleteReports: boolean = false): { su
 /**
  * Get all forms with template name and field count.
  */
-export function getForms() {
-    return database.getFormsWithDetails();
+export function getForms(page: number = 1, limit: number = 50) {
+    return database.getFormsWithDetails(page, limit);
 }
 
 /**
@@ -247,6 +258,7 @@ export interface UpdateFormInput {
         required: boolean;
         placeholder_mapping: string | null;
         options_json: string | null;
+        format_options?: string | null;
     }[];
 }
 
@@ -276,6 +288,7 @@ export function updateForm(input: UpdateFormInput) {
                 required: f.required ? 1 : 0,
                 placeholder_mapping: f.placeholder_mapping || null,
                 options_json: f.options_json || null,
+                format_options: f.format_options || null,
             }));
         }
 

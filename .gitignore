@@ -18,3 +18,12 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Release cleanup
+coverage/
+*.tmp
+out.txt
+*.zip
+*.db-journal
+*.sqlite-shm
+*.sqlite-wal

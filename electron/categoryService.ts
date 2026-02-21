@@ -2,6 +2,12 @@ import { database, Category } from './database';
 import fs from 'fs';
 import { getCurrentUser } from './auth';
 import { logAction } from './auditService';
+import {
+    getClientCategories,
+    createClientCategory,
+    renameClientCategory,
+    deleteClientCategory
+} from './clientService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -12,13 +18,13 @@ export interface CategoryNode extends Category {
 export interface MoveItemInput {
     itemId: string;
     targetCategoryId: string | null; // null means root
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
 }
 
 export interface CreateCategoryInput {
     name: string;
     parentId: string | null;
-    type: 'TEMPLATE' | 'FORM';
+    type: 'TEMPLATE' | 'FORM' | 'CLIENT';
 }
 
 export interface ServiceResult {
@@ -34,9 +40,18 @@ export interface MoveItemResult extends ServiceResult {
 
 /**
  * Get category tree for a specific type.
- * Returns a hierarchical list of category nodes.
  */
-export function getCategoryTree(type: 'TEMPLATE' | 'FORM'): CategoryNode[] {
+export function getCategoryTree(type: 'TEMPLATE' | 'FORM' | 'CLIENT'): CategoryNode[] {
+    if (type === 'CLIENT') {
+        const categories = getClientCategories().map(c => ({
+            id: c.id,
+            name: c.name,
+            parent_id: c.parent_id,
+            type: 'CLIENT' as const,
+            created_at: c.created_at
+        }));
+        return buildTree(categories as Category[]);
+    }
     const categories = database.getAllCategoriesByType(type);
     return buildTree(categories);
 }
@@ -82,6 +97,12 @@ export function createCategory(input: CreateCategoryInput): ServiceResult {
         if (!input.name.trim()) {
             return { success: false, error: 'Category name is required' };
         }
+
+        if (input.type === 'CLIENT') {
+            createClientCategory(input.name, input.parentId || undefined);
+            return { success: true };
+        }
+
         database.createCategory({
             name: input.name,
             parent_id: input.parentId,
@@ -93,11 +114,17 @@ export function createCategory(input: CreateCategoryInput): ServiceResult {
     }
 }
 
-export function renameCategory(id: string, newName: string): ServiceResult {
+export function renameCategory(id: string, newName: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): ServiceResult {
     try {
         if (!newName.trim()) {
             return { success: false, error: 'Category name is required' };
         }
+
+        if (type === 'CLIENT') {
+            renameClientCategory(id, newName);
+            return { success: true };
+        }
+
         database.updateCategoryName(id, newName);
         return { success: true };
     } catch (e) {
@@ -105,8 +132,13 @@ export function renameCategory(id: string, newName: string): ServiceResult {
     }
 }
 
-export function deleteCategory(id: string, type: 'TEMPLATE' | 'FORM'): ServiceResult {
+export function deleteCategory(id: string, type: 'TEMPLATE' | 'FORM' | 'CLIENT'): ServiceResult {
     try {
+        if (type === 'CLIENT') {
+            deleteClientCategory(id);
+            return { success: true };
+        }
+
         // Validation: Must ensure no children
         const childrenCount = database.getCategoryChildrenCount(id);
         if (childrenCount > 0) {
@@ -181,20 +213,28 @@ export function moveItem(input: MoveItemInput): MoveItemResult {
     }
 }
 
-export function deleteTemplate(id: string): ServiceResult {
+export function deleteTemplate(id: string, force: boolean = false): ServiceResult & { usageCount?: number } {
     try {
-        // Validation: Check usage by forms
-        if (database.isTemplateUsed(id)) {
-            return { success: false, error: 'Cannot delete template: It is used by one or more forms.' };
+        // Validation: Check usage by forms if not forced
+        const usageCount = database.getTemplateUsageCount(id);
+
+        if (!force && usageCount > 0) {
+            return { success: false, error: 'TEMPLATE_USED', usageCount };
         }
 
         // Get file path to delete file
         const template = database.getTemplateById(id);
         if (template && fs.existsSync(template.file_path)) {
-            fs.unlinkSync(template.file_path);
+            try {
+                fs.unlinkSync(template.file_path);
+            } catch (err) {
+                console.error(`[CategoryService] Failed to delete file: ${template.file_path}`, err);
+                // Continue with DB deletion even if file delete fails (orphaned file is better than broken DB state?)
+                // Or maybe strictly strict? Let's log and continue.
+            }
         }
 
-        database.deleteTemplate(id);
+        database.deleteTemplate(id, force);
 
         const currentUser = getCurrentUser();
         if (currentUser) {
@@ -202,7 +242,8 @@ export function deleteTemplate(id: string): ServiceResult {
                 userId: currentUser.id,
                 actionType: 'TEMPLATE_DELETE',
                 entityType: 'TEMPLATE',
-                entityId: id
+                entityId: id,
+                metadata: { force }
             });
         }
 
@@ -235,4 +276,43 @@ export function deleteForm(id: string): ServiceResult {
     } catch (e) {
         return { success: false, error: String(e) };
     }
+}
+
+/**
+ * Mirrors a TEMPLATE category chain into the FORM category tree.
+ * Creates missing FORM categories as needed.
+ * Returns the ID of the final FORM category.
+ */
+export function mirrorCategoryHierarchy(templateCategoryId: string): string | null {
+    // 1. Get the full chain of the template category
+    const chain = getCategoryChain(templateCategoryId);
+    if (chain.length === 0) return null;
+
+    let currentFormParentId: string | null = null;
+
+    // 2. Iterate through the chain and ensure each level exists in FORM tree
+    for (const templateCat of chain) {
+        // Find existing FORM category with same name and parent
+        const db = database.getConnection();
+        const existingCat = db.prepare(`
+            SELECT id FROM categories 
+            WHERE type = 'FORM' 
+            AND name = ? 
+            AND (parent_id = ? OR (parent_id IS NULL AND ? IS NULL))
+        `).get(templateCat.name, currentFormParentId, currentFormParentId) as { id: string } | undefined;
+
+        if (existingCat) {
+            currentFormParentId = existingCat.id;
+        } else {
+            // Create new FORM category
+            const newCat = database.createCategory({
+                name: templateCat.name,
+                parent_id: currentFormParentId,
+                type: 'FORM'
+            });
+            currentFormParentId = newCat.id;
+        }
+    }
+
+    return currentFormParentId;
 }

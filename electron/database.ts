@@ -16,7 +16,7 @@ export interface Category {
   id: string;
   name: string;
   parent_id: string | null;
-  type: 'TEMPLATE' | 'FORM';
+  type: 'TEMPLATE' | 'FORM' | 'CLIENT';
   created_at: string;
 }
 
@@ -51,6 +51,7 @@ export interface FormField {
   required: number;
   placeholder_mapping: string | null;
   options_json: string | null;
+  format_options?: string | null;
 }
 
 export interface Report {
@@ -60,6 +61,7 @@ export interface Report {
   file_path: string;
   generated_at: string;
   input_values?: string; // JSON string
+  client_id?: string;
 }
 
 // ─── Database Class ──────────────────────────────────────
@@ -212,13 +214,85 @@ class Database {
         updated_at TEXT NOT NULL,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       );
+
+      /* ─── Client Master Book ─── */
+      
+      CREATE TABLE IF NOT EXISTS client_categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        parent_id TEXT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS client_types (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS client_type_fields (
+        id TEXT PRIMARY KEY,
+        client_type_id TEXT NOT NULL,
+        label TEXT NOT NULL,
+        field_key TEXT NOT NULL,
+        data_type TEXT NOT NULL,
+        is_required INTEGER DEFAULT 0,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(client_type_id) REFERENCES client_types(id),
+        UNIQUE(client_type_id, field_key)
+      );
+
+      CREATE TABLE IF NOT EXISTS clients (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        client_type_id TEXT NOT NULL,
+        category_id TEXT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(client_type_id) REFERENCES client_types(id)
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);
+
+      CREATE TABLE IF NOT EXISTS client_field_values (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL,
+        field_id TEXT NOT NULL,
+        value TEXT,
+        FOREIGN KEY(client_id) REFERENCES clients(id),
+        FOREIGN KEY(field_id) REFERENCES client_type_fields(id)
+      );
+      
+      /* 
+         PAN Uniqueness Enforcement:
+         Ideally, we want: UNIQUE(value) WHERE field.field_key='pan' AND client.is_deleted=0.
+         
+         SQLite Partial Indexes can only filter on columns in the indexed table.
+         'client_field_values' does not contain 'field_key' or 'is_deleted'.
+         
+         Therefore, PAN uniqueness (per client_type, for non-deleted clients) 
+         MUST be enforced in the application layer (ClientService).
+         
+         Attempting a complex trigger-based solution is risky and complex to maintain here.
+         We defer this check to the insertion/update logic in the app.
+      */
     `);
 
     // ─── Migrations ──────────────────────────────────────
+    this.safeAddColumn('user_preferences', 'client_columns', "TEXT DEFAULT '[]'");
     this.safeAddColumn('templates', 'category_id', 'TEXT');
     this.safeAddColumn('forms', 'category_id', 'TEXT');
+    this.safeAddColumn('reports', 'client_id', 'TEXT REFERENCES clients(id)'); // Added client_id migration
     this.safeAddColumn('forms', 'is_deleted', 'INTEGER DEFAULT 0');
     this.safeAddColumn('reports', 'input_values', 'TEXT');
+    this.safeAddColumn('form_fields', 'format_options', 'TEXT');
+
+    // Client Master Book migrations
+    this.safeAddColumn('reports', 'client_id', 'TEXT REFERENCES clients(id)');
   }
 
   private safeAddColumn(tableName: string, columnName: string, columnType: string): void {
@@ -228,7 +302,7 @@ class Database {
 
     if (!columnExists) {
       db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`);
-
+      console.error(`[Database] Added column ${columnName} to ${tableName}`);
     }
   }
 
@@ -272,6 +346,12 @@ class Database {
     return stmt.all() as User[];
   }
 
+  updateUserPassword(id: string, password_hash: string): void {
+    const db = this.getConnection();
+    const stmt = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+    stmt.run(password_hash, id);
+  }
+
   // ─── Repository: Templates ───────────────────────────
 
   createTemplate(template: Omit<Template, 'id' | 'created_at'>): Template {
@@ -280,10 +360,10 @@ class Database {
     const created_at = new Date().toISOString();
 
     const stmt = db.prepare(`
-      INSERT INTO templates (id, name, file_path, created_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO templates (id, name, file_path, category_id, created_at)
+      VALUES (?, ?, ?, ?, ?)
     `);
-    stmt.run(id, template.name, template.file_path, created_at);
+    stmt.run(id, template.name, template.file_path, template.category_id || null, created_at);
 
     return { id, ...template, created_at };
   }
@@ -301,13 +381,9 @@ class Database {
     const params: any[] = [];
 
     let whereClause = '';
-    if (categoryId !== undefined) {
-      if (categoryId === null) {
-        whereClause = ' WHERE t.category_id IS NULL';
-      } else {
-        whereClause = ' WHERE t.category_id = ?';
-        params.push(categoryId);
-      }
+    if (categoryId !== undefined && categoryId !== null) {
+      whereClause = ' WHERE t.category_id = ?';
+      params.push(categoryId);
     }
 
     const countResult = db.prepare(countQuery + whereClause.replace('t.', '')).get(...params) as { count: number };
@@ -373,8 +449,8 @@ class Database {
     `);
 
     const insertField = db.prepare(`
-      INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json, format_options)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const transaction = db.transaction(() => {
@@ -390,7 +466,8 @@ class Database {
           field.data_type,
           field.required,
           field.placeholder_mapping || null,
-          field.options_json || null
+          field.options_json || null,
+          field.format_options || null
         );
       }
     });
@@ -434,8 +511,8 @@ class Database {
         db.prepare('DELETE FROM form_fields WHERE form_id = ?').run(id);
 
         const insertField = db.prepare(`
-          INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO form_fields (id, form_id, label, field_key, data_type, required, placeholder_mapping, options_json, format_options)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const field of fields) {
@@ -447,7 +524,8 @@ class Database {
             field.data_type,
             field.required,
             field.placeholder_mapping || null,
-            field.options_json || null
+            field.options_json || null,
+            field.format_options || null
           );
         }
       }
@@ -458,20 +536,20 @@ class Database {
     return (this.getFormById(id) as any)!; // simpler cast for now
   }
 
-  getFormsWithDetails(page: number = 1, limit: number = 10, categoryId?: string | null): { forms: (Form & { template_name: string; field_count: number })[]; total: number } {
+  getFormsWithDetails(page: number, limit: number, categoryId?: string | null, includeArchived: boolean = false): { forms: (Form & { template_name: string; field_count: number })[]; total: number } {
     const db = this.getConnection();
     const offset = (page - 1) * limit;
 
-    let whereClause = 'WHERE f.is_deleted = 0'; // Only show non-deleted forms
+    let whereClause = 'WHERE 1=1';
     const params: any[] = [];
 
-    if (categoryId !== undefined) {
-      if (categoryId === null) {
-        whereClause += ' AND f.category_id IS NULL';
-      } else {
-        whereClause += ' AND f.category_id = ?';
-        params.push(categoryId);
-      }
+    if (!includeArchived) {
+      whereClause += ' AND f.is_deleted = 0';
+    }
+
+    if (categoryId !== undefined && categoryId !== null) {
+      whereClause += ' AND f.category_id = ?';
+      params.push(categoryId);
     }
 
     // We can't rename count to 'total' inside the query easily without wrapper
@@ -560,10 +638,10 @@ class Database {
     const generated_at = new Date().toISOString();
 
     const stmt = db.prepare(`
-      INSERT INTO reports (id, form_id, generated_by, file_path, generated_at, input_values)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO reports (id, form_id, generated_by, file_path, generated_at, input_values, client_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, report.form_id, report.generated_by, report.file_path, generated_at, report.input_values || null);
+    stmt.run(id, report.form_id, report.generated_by, report.file_path, generated_at, report.input_values || null, report.client_id || null);
 
     return { id, ...report, generated_at };
   }
@@ -574,7 +652,7 @@ class Database {
     return stmt.get(id) as Report | undefined;
   }
 
-  getReportsWithDetails(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC'): { reports: (Report & { form_name: string; generated_by_username: string })[]; total: number } {
+  getReportsWithDetails(page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy: string = 'generated_at', sortOrder: 'ASC' | 'DESC' = 'DESC', clientId?: string): { reports: (Report & { form_name: string; generated_by_username: string })[]; total: number } {
     const db = this.getConnection();
     const offset = (page - 1) * limit;
 
@@ -594,6 +672,12 @@ class Database {
       conditions.push('r.form_id = ?');
       params.push(formId);
       countParams.push(formId);
+    }
+
+    if (clientId) {
+      conditions.push('r.client_id = ?');
+      params.push(clientId);
+      countParams.push(clientId);
     }
 
     if (search) {
@@ -684,6 +768,13 @@ class Database {
     return stmt.all(type) as Category[];
   }
 
+  getTemplateUsageCount(templateId: string): number {
+    const db = this.getConnection();
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM forms WHERE template_id = ?'); // Counts BOTH active and archived
+    const result = stmt.get(templateId) as { count: number };
+    return result.count;
+  }
+
   getCategoryById(id: string): Category | undefined {
     const db = this.getConnection();
     const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
@@ -734,19 +825,39 @@ class Database {
 
   // Check if template is used by any form
   isTemplateUsed(templateId: string): boolean {
-    const db = this.getConnection();
-    const stmt = db.prepare('SELECT COUNT(*) as count FROM forms WHERE template_id = ?');
-    const result = stmt.get(templateId) as { count: number };
-    return result.count > 0;
+    return this.getTemplateUsageCount(templateId) > 0;
   }
 
-  deleteTemplate(id: string): void {
+  deleteTemplate(id: string, force: boolean = false): void {
     const db = this.getConnection();
-    // Also delete placeholders
+
     const deletePlaceholders = db.prepare('DELETE FROM template_placeholders WHERE template_id = ?');
     const deleteTemplate = db.prepare('DELETE FROM templates WHERE id = ?');
 
+    const deleteForms = db.prepare('DELETE FROM forms WHERE template_id = ?');
+    // We also need to delete form fields and reports if we are force deleting forms
+    // But for now let's assume 'forms' delete triggers need to be handled or we do it manually.
+    // SQLite doesn't cascade by default unless configured. Let's do manual cleanup safely.
+
+    // To properly delete forms, we should probably rely on a more robust method if we had one, 
+    // but here we'll do:
+    // 1. Get all form IDs
+    // 2. Delete reports for those forms
+    // 3. Delete form fields
+    // 4. Delete forms
+
+    const getFormIds = db.prepare('SELECT id FROM forms WHERE template_id = ?');
+
     db.transaction(() => {
+      if (force) {
+        const forms = getFormIds.all(id) as { id: string }[];
+        for (const form of forms) {
+          db.prepare('DELETE FROM reports WHERE form_id = ?').run(form.id);
+          db.prepare('DELETE FROM form_fields WHERE form_id = ?').run(form.id);
+        }
+        deleteForms.run(id);
+      }
+
       deletePlaceholders.run(id);
       deleteTemplate.run(id);
     })();
