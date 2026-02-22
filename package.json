@@ -13,6 +13,7 @@
     "build:renderer": "vite build --config vite.config.ts",
     "build:electron": "tsc -p tsconfig.electron.json",
     "test": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "postinstall": "electron-rebuild"
   },
@@ -48,6 +49,7 @@
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.0.18",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "electron": "^34.1.0",
