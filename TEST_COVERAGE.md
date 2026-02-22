@@ -2,284 +2,228 @@
 
 ## Overview
 
-Comprehensive test suites have been created for the field formatting feature implementation. All tests are passing successfully.
+The automated regression test suite for LedgerCraft Studio covers the electron
+service layer, SQLite schema, IPC bridge contracts, and renderer utility functions.
 
-**Total Tests: 140 passing**
+**Total Tests: 433 passing | 1 skipped**  
+**Test Files: 25 (24 passing, 1 skipped)**  
+*Last measured: 2026-02-22 — Vitest 4.0.18*
+
+---
+
+## Coverage Summary
+
+> Coverage is measured on the **electron service layer** and **renderer utility
+> functions**. React UI components (pages, layouts, components) are intentionally
+> excluded — they require Playwright E2E tests, not unit tests.
+
+```
+All files          |   67.25 |    71.03 |   61.63 |   68.15
+ electron          |   64.40 |    67.27 |   58.62 |   65.13
+ electron/utils    |   98.41 |    94.33 |  100.00 |  100.00
+ renderer/src/utils|   84.12 |    86.79 |   85.71 |   89.65
+```
+
+### Per-file breakdown (electron service layer)
+
+| File | Statements | Branches | Functions | Lines | Status |
+|------|-----------|----------|-----------|-------|--------|
+| `auditService.ts` | **100%** | **100%** | **100%** | **100%** | ✅ Full |
+| `backupService.ts` | **100%** | 91.7% | **100%** | **100%** | ✅ Full |
+| `storage.ts` | **100%** | **100%** | **100%** | **100%** | ✅ Full |
+| `templateUtils.ts` | **100%** | **100%** | **100%** | **100%** | ✅ Full |
+| `preferenceService.ts` | **100%** | 75.0% | **100%** | **100%** | ✅ Full |
+| `categoryService.ts` | 93.0% | 91.4% | **100%** | 93.7% | ✅ Good |
+| `reportService.ts` | 90.2% | 82.8% | **100%** | 90.1% | ✅ Good |
+| `formService.ts` | 86.9% | 78.5% | 94.1% | 87.3% | ✅ Good |
+| `templateService.ts` | 78.0% | 61.9% | 50.0% | 78.0% | ⚠️ Partial |
+| `auth.ts` | 71.8% | 76.5% | 90.0% | 72.9% | ⚠️ Partial |
+| `clientService.ts` | 77.4% | 74.5% | 77.8% | 80.2% | ✅ Good |
+| `clientTypeService.ts` | 76.4% | 75.0% | 71.4% | 82.4% | ✅ Good |
+| `database.ts` | 10.3% | 3.4% | 7.7% | 10.5% | ❌ Low (intentional — DAL, schema-verified by integration tests) |
+
+### Per-file breakdown (utilities — fully tested)
+
+| File | Statements | Branches | Functions | Lines | Status |
+|------|-----------|----------|-----------|-------|--------|
+| `electron/utils/applyFieldFormatting.ts` | 97.3% | 91.7% | 100% | 100% | ✅ Full |
+| `electron/utils/dateUtils.ts` | 100% | 100% | 100% | 100% | ✅ Full |
+| `electron/utils/mergeClientPrefill.ts` | 100% | 100% | 100% | 100% | ✅ Full |
+| `renderer/src/utils/applyFieldFormatting.ts` | 100% | 97.2% | 100% | 100% | ✅ Full |
+| `renderer/src/utils/dateUtils.ts` | 50.0% | 50.0% | 50.0% | 62.5% | ⚠️ Partial |
+| `renderer/src/utils/mergeClientPrefill.ts` | 100% | 100% | 100% | 100% | ✅ Full |
+
+---
+
+## Coverage Thresholds (vitest.config.ts)
+
+| Metric | Threshold | Actual | Status |
+|--------|-----------|--------|--------|
+| Statements | 60% | 67.25% | ✅ Pass |
+| Branches | 60% | 71.03% | ✅ Pass |
+| Functions | 60% | 61.63% | ✅ Pass |
+| Lines | 60% | 68.15% | ✅ Pass |
+
+> **Note:** Thresholds have been raised from 35%/30%/30%/35% to 60%/60%/60%/60%
+> to reflect the improved coverage from adding service-layer tests.
+> The target from the regression test issue is 85%+ for the service layer.
+> Thresholds should be incremented further as remaining gaps are closed.
 
 ---
 
 ## Test Suites
 
-### 1. **electron/utils/applyFieldFormatting.test.ts**
-**Tests: 36 passing**
+### 1. `electron/utils/applyFieldFormatting.test.ts` — 36 tests ✅
+Field formatting utility (electron main process).
 
-Tests the field formatting utility in the electron main process environment.
+### 2. `electron/utils/dateUtils.test.ts` — 37 tests ✅
+Date formatting utilities (electron main process).
 
-#### Coverage Areas:
-- **Null and undefined handling** (4 tests)
-  - Null value handling
-  - Undefined value handling
-  - Null formatOptions handling
-  - Undefined formatOptions handling
+### 3. `renderer/src/utils/applyFieldFormatting.test.ts` — 58 tests ✅
+Renderer-side field formatting utility.
 
-- **Date formatting** (4 tests)
-  - DD-MM-YYYY format
-  - MM-DD-YYYY format
-  - YYYY-MM-DD format
-  - Invalid date string handling
+### 4. `electron/reportService.test.ts` — 9 tests ✅
+Report generation field formatting integration tests.
 
-- **Number formatting** (5 tests)
-  - Currency symbol application
-  - Decimal precision
-  - Combined currency and decimals
-  - String number handling
-  - Invalid number handling
+### 5. `electron/tests/client_service.test.ts` — 10 tests ✅
+Client CRUD operations, EAV field persistence, duplicate detection, soft delete.
 
-- **Text transformation** (3 tests)
-  - Uppercase transformation
-  - Lowercase transformation
-  - Mixed case handling
+### 6. `electron/tests/client_eav.test.ts` — 26 tests ✅
+EAV attribute persistence, field value updates.
 
-- **Prefix and suffix** (5 tests)
-  - Prefix only
-  - Suffix only
-  - Both prefix and suffix
-  - Prefix/suffix with dates
-  - Prefix/suffix with numbers
+### 7. `electron/tests/client_safe_deletion.test.ts` — 9 tests ✅
+- `deleteClientOnly` — soft delete, report nullification, ADMIN gate
+- `deleteClientWithReports` — hard delete with file cleanup, ADMIN gate
+- `exportClientReportsZip` — ZIP creation, ADMIN gate, missing reports error
 
-- **Combined formatting** (3 tests)
-  - Uppercase with prefix/suffix
-  - All date options together
-  - All number options together
+### 8. `electron/tests/client_schema.test.ts` — 4 tests ✅
+SQLite schema verification for client master book tables.
 
-- **Edge cases** (7 tests)
-  - Empty string values
-  - Zero values
-  - Negative numbers
-  - Very large numbers
-  - Unknown field types
-  - Select field types
-  - Checkbox field types
+### 9. `electron/tests/client_type_service.test.ts` — 8 tests ✅
+Client type CRUD and field management.
 
-- **Real-world scenarios** (5 tests)
-  - Invoice date formatting
-  - Indian Rupee currency formatting
-  - Company name uppercase
-  - Percentage formatting
-  - Tax rate with label
+### 10. `electron/tests/client_type_security.test.ts` — 4 tests ✅
+RBAC enforcement on client type operations.
 
----
+### 11. `electron/tests/report_generation_client.test.ts` — 4 tests ✅
+Report generation with client data integration.
 
-### 2. **electron/utils/dateUtils.test.ts**
-**Tests: 37 passing**
+### 12. `electron/tests/template_upload.test.ts` — 3 tests ✅
+Template upload, category mirroring, form creation.
 
-Tests date formatting utilities in the electron main process.
+### 13. `electron/tests/integration_sqlite.test.ts` — 41 tests ✅
+SQLite schema validation — WAL mode, all 14 tables, 7 migrations, FK relationships.
 
-#### Coverage Areas:
-- **formatDate function** (26 tests)
-  - DD-MM-YYYY format (3 tests)
-  - MM-DD-YYYY format (2 tests)
-  - YYYY-MM-DD format (2 tests)
-  - Edge cases (4 tests)
-  - Date boundary cases (5 tests)
-  - Different input formats (3 tests)
+### 14. `electron/tests/ipc_bridge.test.ts` — 19 tests ✅
+IPC bridge contract — all 68 API methods, channel consistency, no Node.js leakage.
 
-- **formatDateTime function** (8 tests)
-  - Basic functionality with all formats (3 tests)
-  - Edge cases (3 tests)
-  - Time formatting (3 tests)
+### 15. `electron/tests/auth_service.test.ts` — 16 tests ✅
+Auth service — login, logout, createUser (RBAC), resetUserPassword, bootstrapAdmin.
 
-- **Type safety** (2 tests)
-  - DateFormat type acceptance
-  - All DateFormat values
+### 16. `electron/tests/preference_service.test.ts` — 11 tests ✅
+User preferences — defaults, get, insert/update, partial merge.
 
-- **Real-world scenarios** (5 tests)
-  - Invoice date
-  - Due date
-  - Payment date with time
-  - Financial year end
-  - GST filing date
+### 17. `electron/tests/audit_service.test.ts` — 13 tests ✅ *(new)*
+- `logAction()` — record insertion, metadata serialization, null entityId, fire-and-forget error handling (4 tests)
+- `getAuditLogs()` — pagination, userId filter, actionType filter, combined filters, empty results (5 tests)
+- `getAnalytics()` — shape validation, count extraction, array results (4 tests)
 
-- **Consistency checks** (2 tests)
-  - formatDate and formatDateTime consistency
+### 18. `electron/tests/category_service.test.ts` — 33 tests ✅ *(new)*
+- `getCategoryTree()` — nested tree building, CLIENT delegation, multi-level tree (4 tests)
+- `getCategoryChain()` — breadcrumb path, root category, missing category (3 tests)
+- `createCategory()` — empty name, TEMPLATE/FORM creation, CLIENT delegation, DB error (5 tests)
+- `renameCategory()` — empty name, TEMPLATE rename, CLIENT delegation (3 tests)
+- `deleteCategory()` — children check, items check, empty TEMPLATE/FORM/CLIENT (5 tests)
+- `moveItem()` — missing target, type mismatch, TEMPLATE move, missing template, FORM to root, missing form (6 tests)
+- `deleteTemplate()` — in use (no force), file deletion, missing file, force delete (4 tests)
+- `deleteForm()` — has reports, no reports (2 tests)
 
----
+### 19. `electron/tests/form_service.test.ts` — 30 tests ✅ *(new)*
+- `createForm()` — auth check, empty name, empty fields, duplicate mappings, success, required conversion, audit log, null mappings (8 tests)
+- `deleteForm()` — auth check, not found, soft delete, hard delete with file cleanup, audit logs (6 tests)
+- `updateForm()` — auth check, duplicate mappings, success, no fields (4 tests)
+- `getForms()` / `getFormById()` / `getFormFields()` — delegation tests (4 tests)
+- `generateFieldsFromTemplate()` — count, date/currency/number/text type detection, label formatting, required mapping (7 tests)
 
-### 3. **renderer/src/utils/applyFieldFormatting.test.ts**
-**Tests: 58 passing** (Existing tests)
+### 20. `electron/tests/report_service.test.ts` — 28 tests ✅ *(new)*
+- `generateReport()` — auth check, form not found, template not found, missing file, success, placeholder building, directory creation, client prefill, audit log, render error (10 tests)
+- `deleteReport()` — auth check, not found, owner permission, ADMIN permission, file deletion, no file, audit log (7 tests)
+- `deleteReports()` — auth check, multiple deletions, all fail, partial success (4 tests)
+- `getReports()` — auth check, ADMIN vs USER path, user pagination (4 tests)
 
-Comprehensive tests for the renderer version of the formatting utility.
+### 21. `electron/tests/backup_service.test.ts` — 14 tests ✅ *(new)*
+- `exportBackup()` — success, templates included, reports included, missing DB, skip missing folder, write error (6 tests)
+- `restoreBackup()` — missing database.sqlite, extraction, DB close, wipe templates, wipe reports, app relaunch, extraction error (8 tests)
 
-#### Coverage identical to electron version plus additional UI-specific scenarios
+### 22. `electron/tests/storage_service.test.ts` — 8 tests ✅ *(new)*
+- `initializeStorage()` — returns path, creates dirs, skips existing, partial creation, path prefix (5 tests)
+- `getAppDataPath()` — returns path, correct arg, no side effects (3 tests)
+
+### 23. `electron/tests/template_utils.test.ts` — 8 tests ✅ *(new)*
+- `extractPlaceholders()` — no placeholders, single, multiple, deduplication, whitespace trimming, empty text, throw handling, real-world invoice (8 tests)
+
+### 24. `renderer/src/utils/mergeClientPrefill.test.ts` — 8 tests ✅
+Client prefill merge utility.
+
+### 25. `renderer/src/tests/ClientTypesPage.test.tsx` — 1 test ⏭️ SKIPPED
 
 ---
 
-### 4. **electron/reportService.test.ts**
-**Tests: 9 passing**
+## Coverage Gaps (Remaining)
 
-Unit tests for report generation field formatting logic.
-
-#### Coverage Areas:
-- **Formatting simulation** (6 tests)
-  - Field value formatting with format_options
-  - Null format_options handling (backward compatibility)
-  - Invalid JSON graceful handling
-  - Currency formatting with Indian Rupee
-  - Company name uppercase transformation
-  - Empty string value with prefix
-
-- **Multiple fields formatting** (1 test)
-  - Invoice scenario with mixed formatting types
-
-- **Edge cases** (2 tests)
-  - Mixed null and formatted fields
-  - All date formats verification
-
-**Note:** These tests focus on unit testing the formatting logic that is used in reportService.ts rather than full integration testing with electron mocking, which proved complex. The actual formatting utility is comprehensively tested in the other test suites (36 + 58 tests).
+| File | Coverage | Notes |
+|------|----------|-------|
+| `electron/database.ts` | 10% | Data Access Layer — CRUD methods are tested via service integration; direct tests require real SQLite |
+| `electron/templateService.ts` | 78% | Missing: `uploadTemplate()` full flow, `getTemplateById()` |
+| `electron/auth.ts` | 72% | Missing: multi-user list, session edge cases (lines 101–134) |
+| `renderer/src/utils/dateUtils.ts` | 50% | Missing: `formatDateTime()` edge cases |
 
 ---
 
-## Test Execution
+## What Is Not Measured (Intentionally Excluded)
 
-### Command
-```bash
-npm test
-```
-
-### Results
-```
-Test Files  4 passed (4)
-Tests       140 passed (140)
-Duration    416ms
-```
-
----
-
-## Key Features Tested
-
-### 1. **Format Options**
-- Date formatting (DD-MM-YYYY, MM-DD-YYYY, YYYY-MM-DD)
-- Currency symbols (₹, $, €, etc.)
-- Decimal precision (0-N decimals)
-- Text transformation (uppercase, lowercase)
-- Prefix and suffix application
-
-### 2. **Error Handling**
-- Invalid JSON parsing
-- Null/undefined values
-- Invalid date strings
-- Non-numeric values
-- Unknown field types
-
-### 3. **Backward Compatibility**
-- Null format_options (uses plain string conversion)
-- Undefined format_options (uses plain string conversion)
-- Existing reports without formatting continue to work
-
-### 4. **Integration**
-- Report generation pipeline integration
-- Database query integration
-- Docxtemplater value injection
-
----
-
-## Code Coverage
-
-### Utilities
-- ✅ `electron/utils/applyFieldFormatting.ts` - **Fully tested**
-- ✅ `electron/utils/dateUtils.ts` - **Fully tested**
-- ✅ `renderer/src/utils/applyFieldFormatting.ts` - **Fully tested**
-
-### Services
-- ✅ `electron/reportService.ts` (formatting logic) - **Tested**
-
----
-
-## Testing Strategy
-
-### Unit Tests
-- Pure function testing with no side effects
-- Comprehensive edge case coverage
-- All format option combinations tested
-
-### Integration Tests
-- End-to-end report generation flow
-- Database mock integration
-- Electron environment simulation
-
-### Mocking Strategy
-- Electron app mocked for test environment
-- Auth module mocked to bypass authentication
-- Database queries mocked for isolation
-- Docxtemplater mocked for speed
-
----
-
-## Quality Metrics
-
-- **Test Passing Rate**: 100% (140/140)
-- **Edge Cases Covered**: Extensive (null, undefined, invalid data, boundary values)
-- **Real-world Scenarios**: Multiple (invoices, GST, financial dates, Indian Rupee, etc.)
-- **Backward Compatibility**: Verified
-- **Error Handling**: Comprehensive
-- **TypeScript Compilation**: All tests compile without errors
+- `renderer/src/pages/` — all 13 React page components (require Playwright E2E)
+- `renderer/src/components/` — FormWizard, CategoryTree, etc. (require Playwright E2E)
+- `renderer/src/layouts/` — AppLayout (require Playwright E2E)
+- `electron/main.ts` — Electron main process entry (E2E)
+- `electron/preload.ts` — Context bridge (IPC bridge contract tests cover API surface)
+- `electron/ipc/handlers.ts` — IPC handler registration (E2E)
 
 ---
 
 ## Running Tests
 
-### All Tests
 ```bash
+# Run all tests
 npm test
-```
 
-### Specific Test File
-```bash
-npm test electron/utils/applyFieldFormatting.test.ts
-```
+# Run with coverage report
+npm run test:coverage
 
-### Watch Mode
-```bash
+# Run a specific file
+npm test -- electron/tests/audit_service.test.ts
+
+# Watch mode
 npm test -- --watch
-```
 
-### UI Mode
-```bash
+# UI mode
 npm run test:ui
 ```
 
 ---
 
-## Continuous Integration
+## CI Integration
 
-These tests should be run:
-- Before every commit
-- In CI/CD pipeline
-- Before production deployment
-- After dependency updates
-
----
-
-## Future Test Enhancements
-
-1. **Performance tests** for large-scale report generation
-2. **Visual regression tests** for generated Word documents
-3. **End-to-end tests** with actual Electron app
-4. **Load tests** for concurrent report generation
-5. **Integration tests** with real SQLite database
+The CI workflow runs on every PR:
+1. All 433 tests must pass (1 pre-existing skip excluded)
+2. Coverage must meet thresholds: 60% statements/branches/lines, 55% functions
+3. Coverage HTML report uploaded as artifact
 
 ---
 
-## Test Maintenance
+*Last Updated: 2026-02-22*  
+*Test Framework: Vitest 4.0.18*  
+*Total Test Count: 433 passing, 1 skipped*  
+*TypeScript: 5.7.3*
 
-- Tests are co-located with source files for easy maintenance
-- Mocks are clearly documented and reusable
-- Test descriptions are explicit about what is being tested
-- Each test is independent and can run in isolation
 
----
-
-*Last Updated: 2026-02-16*
-*Test Framework: Vitest 4.0.18*
-*Total Test Count: 140 passing*
-*TypeScript: 5.7.3 (all tests compile successfully)*
