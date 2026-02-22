@@ -8,8 +8,8 @@ let clients: any[] = [];
 let clientFieldValues: any[] = [];
 let clientTypes: any[] = [{ id: 'type-1', name: 'Individual' }];
 let clientTypeFields: any[] = [
-    { id: 'field-1', client_type_id: 'type-1', field_key: 'pan_number', label: 'PAN' },
-    { id: 'field-2', client_type_id: 'type-1', field_key: 'name', label: 'Name' }
+    { id: 'field-1', client_type_id: 'type-1', field_key: 'pan_number', label: 'PAN', data_type: 'text', is_required: 0, is_deleted: 0 },
+    { id: 'field-2', client_type_id: 'type-1', field_key: 'name', label: 'Name', data_type: 'text', is_required: 0, is_deleted: 0 }
 ];
 
 const mockCurrentUser = { role: 'ADMIN', username: 'admin' };
@@ -129,9 +129,9 @@ const mockPrepare = vi.fn((sql: string) => {
                 return clientCategories.filter(c => c.is_deleted === 0);
             }
 
-            if (sql.includes('SELECT id, field_key FROM client_type_fields')) {
+            if (sql.includes('SELECT id, field_key FROM client_type_fields') || sql.includes('SELECT id, field_key, data_type, is_required FROM client_type_fields')) {
                 const [tid] = args;
-                return clientTypeFields.filter(f => f.client_type_id === tid).map(f => ({ id: f.id, field_key: f.field_key }));
+                return clientTypeFields.filter(f => f.client_type_id === tid && f.is_deleted === 0).map(f => ({ id: f.id, field_key: f.field_key, data_type: f.data_type || 'text', is_required: f.is_required || 0 }));
             }
 
             if (sql.includes('FROM clients c') && sql.includes('LIKE ?')) {
