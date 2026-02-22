@@ -35,11 +35,12 @@ export default defineConfig({
       thresholds: {
         // Thresholds reflect the current electron service-layer + renderer utility coverage.
         // React UI components are excluded (require E2E/Playwright tests, not unit tests).
-        // Target: raise these incrementally as more service-layer tests are added.
-        lines: 60,
-        functions: 60,
-        branches: 60,
-        statements: 60,
+        // Raised from 60% after closing coverage gaps in auth, templateService, dateUtils,
+        // clientTypeService, and clientService.
+        lines: 68,
+        functions: 62,
+        branches: 70,
+        statements: 68,
       },
     },
   },
