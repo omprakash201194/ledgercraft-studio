@@ -37,15 +37,20 @@ vi.mock('../templateUtils', () => ({
 }));
 
 // Mock fs
-vi.mock('fs', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('fs')>();
-    return {
-        ...actual,
-        writeFileSync: vi.fn(),
-        mkdirSync: vi.fn(),
+vi.mock('fs', () => ({
+    default: {
         existsSync: vi.fn(() => true),
-    };
-});
+        mkdirSync: vi.fn(),
+        writeFileSync: vi.fn(),
+        readFileSync: vi.fn(),
+        unlinkSync: vi.fn(),
+    },
+    existsSync: vi.fn(() => true),
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn(),
+    unlinkSync: vi.fn(),
+}));
 
 // Mock getCurrentUser
 vi.mock('../auth', () => ({
