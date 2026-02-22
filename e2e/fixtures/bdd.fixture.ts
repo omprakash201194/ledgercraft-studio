@@ -49,7 +49,9 @@ export const test = bddBase.extend<ElectronFixtures>({
     window: async ({ electronApp }, use) => {
         const page = await electronApp.firstWindow();
         await page.waitForLoadState('domcontentloaded');
-        await page.waitForTimeout(500);
+        await page.waitForFunction(() => typeof (window as any).api !== 'undefined');
+        await page.waitForSelector('#root');
+        await page.locator('#login-submit').or(page.locator('text=Dashboard')).first().waitFor({ state: 'visible', timeout: 15_000 });
         await use(page);
     },
 });

@@ -14,13 +14,26 @@ const NAV_LABELS: Record<string, string> = {
     'Generate Report': 'Generate Report',
 };
 
+const NAV_ROUTES: Record<string, string> = {
+    Clients: '/clients',
+    Reports: '/reports',
+    Templates: '/templates',
+    'Generate Report': '/generate-report',
+};
+
 When('I navigate to the {string} section', async ({ window }, section: string) => {
     const label = NAV_LABELS[section] ?? section;
-    // Try the navigation locator using accessible role first, then fallback to text
-    const navLink = window.locator(`[role="navigation"]`).getByText(label, { exact: true })
-        .or(window.locator(`aside`).getByText(label, { exact: true }));
-    await navLink.first().click();
-    await window.waitForTimeout(500);
+
+    const nav = window.locator('[data-testid="main-navigation"]');
+    await expect(nav).toBeVisible();
+
+    await nav.getByRole('button', { name: label, exact: true }).click();
+
+    const route = NAV_ROUTES[section] ?? NAV_ROUTES[label];
+    if (route) {
+        const escaped = route.replace(/\//g, '\\/');
+        await expect(window).toHaveURL(new RegExp(`#${escaped}(?:$|[?#])`));
+    }
 });
 
 // ─── Clients assertions ───────────────────────────────────────────────────────

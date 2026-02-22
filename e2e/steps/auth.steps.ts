@@ -10,7 +10,7 @@ const { Given, When, Then } = createBdd(test);
 
 Given('the application is launched', async ({ window }) => {
     await window.waitForLoadState('domcontentloaded');
-    await window.waitForTimeout(300);
+    await expect(window.locator('#login-submit')).toBeVisible();
 });
 
 Given('I am logged in as admin', async ({ window }) => {
@@ -46,8 +46,8 @@ Then('I should be redirected to the dashboard', async ({ window }) => {
 });
 
 Then('the navigation menu should be visible', async ({ window }) => {
-    const nav = window.locator('[role="navigation"], aside, nav');
-    await expect(nav.first()).toBeVisible();
+    const nav = window.locator('[data-testid="main-navigation"]');
+    await expect(nav).toBeVisible();
 });
 
 Then('I should see an authentication error', async ({ window }) => {

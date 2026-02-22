@@ -24,8 +24,8 @@ test.describe('Dashboard', () => {
 
     test('sidebar navigation is present', async ({ window }) => {
         // The sidebar/drawer should contain navigation items
-        const nav = window.locator('[role="navigation"], aside, nav');
-        await expect(nav.first()).toBeVisible();
+        const nav = window.locator('[data-testid="main-navigation"]');
+        await expect(nav).toBeVisible();
     });
 
     test('quick-action cards are rendered', async ({ window }) => {

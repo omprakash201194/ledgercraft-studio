@@ -59,8 +59,10 @@ export const test = base.extend<ElectronFixtures>({
     window: async ({ electronApp }, use) => {
         const page = await electronApp.firstWindow();
         await page.waitForLoadState('domcontentloaded');
-        // Short wait for React to finish its initial render cycle
-        await page.waitForTimeout(500);
+        // Wait for preload bridge and initial React render (avoid fixed sleeps)
+        await page.waitForFunction(() => typeof (window as any).api !== 'undefined');
+        await page.waitForSelector('#root');
+        await page.locator('#login-submit').or(page.locator('text=Dashboard')).first().waitFor({ state: 'visible', timeout: 15_000 });
         await use(page);
     },
 });

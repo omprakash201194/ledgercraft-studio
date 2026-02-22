@@ -18,7 +18,7 @@ export class DashboardPage {
 
     /** Click a navigation item in the sidebar */
     async navigateTo(label: string): Promise<void> {
-        await this.page.click(`[role="navigation"] >> text="${label}"`);
+        await this.page.locator('[data-testid="main-navigation"]').getByRole('button', { name: label, exact: true }).click();
     }
 
     /** Returns the page title shown in the main content area */
