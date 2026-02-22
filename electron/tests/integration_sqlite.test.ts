@@ -170,10 +170,7 @@ describe('SQLite Integration Tests', () => {
 
         it('should add client_id column to reports via migration', () => {
             const allSql = mockExec.mock.calls.map(c => c[0] as string).join('\n');
-            const alterCalls = mockExec.mock.calls
-                .map(c => c[0] as string)
-                .filter(sql => sql.includes('ALTER TABLE reports ADD COLUMN client_id'));
-            expect(alterCalls.length).toBeGreaterThan(0);
+            expect(allSql).toContain('ALTER TABLE reports ADD COLUMN client_id');
         });
 
         it('should add is_deleted column to forms via migration', () => {

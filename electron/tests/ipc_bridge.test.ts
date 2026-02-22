@@ -259,8 +259,11 @@ describe('IPC Bridge Contract Tests', () => {
         });
 
         it('should use consistent namespace prefixes in channel names', () => {
-            const validPrefixes = ['auth:', 'template:', 'form:', 'report:', 'category:', 'item:', 'audit:', 'prefs:', 'client:', 'client-type:', 'backup:', 'app:', 'shell:', 'get-'];
+            const validPrefixes = ['auth:', 'template:', 'form:', 'report:', 'category:', 'item:', 'audit:', 'prefs:', 'client:', 'client-type:', 'backup:', 'app:', 'shell:'];
+            // Legacy channel predating the namespace convention
+            const legacyChannels = ['get-app-data-path'];
             for (const channel of EXPECTED_IPC_CHANNELS) {
+                if (legacyChannels.includes(channel)) continue;
                 const hasValidPrefix = validPrefixes.some(prefix => channel.startsWith(prefix));
                 expect(hasValidPrefix, `Channel "${channel}" does not use a recognized namespace prefix`).toBe(true);
             }

@@ -37,6 +37,7 @@ vi.mock('../templateUtils', () => ({
 }));
 
 // Mock fs
+// CJS interop: 'import fs from "fs"' uses the default export in Vitest's module system
 vi.mock('fs', () => ({
     default: {
         existsSync: vi.fn(() => true),
@@ -45,11 +46,6 @@ vi.mock('fs', () => ({
         readFileSync: vi.fn(),
         unlinkSync: vi.fn(),
     },
-    existsSync: vi.fn(() => true),
-    mkdirSync: vi.fn(),
-    writeFileSync: vi.fn(),
-    readFileSync: vi.fn(),
-    unlinkSync: vi.fn(),
 }));
 
 // Mock getCurrentUser
