@@ -267,6 +267,13 @@ export function registerIpcHandlers(): void {
         return generateReport(input);
     });
 
+    ipcMain.handle('report:generate-bulk', async (event, request: any) => {
+        const { generateBulkReports } = require('../services/bulkReportService');
+        return generateBulkReports(request, (payload: any) => {
+            event.sender.send('bulk-progress', payload);
+        });
+    });
+
     ipcMain.handle('report:get-all', (_event, page: number = 1, limit: number = 10, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', clientId?: string) => {
 
         const safeSortBy = sortBy || 'generated_at';

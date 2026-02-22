@@ -157,6 +157,43 @@ declare global {
         input_values?: string; // JSON string of input values
     }
 
+    interface BulkReportRequest {
+        clientIds: string[];
+        formIds: string[];
+        financialYear?: string;
+    }
+
+    interface BulkReportItemResult {
+        clientId: string;
+        clientName: string;
+        formId: string;
+        formName: string;
+        success: boolean;
+        error?: string;
+        filePath?: string;
+    }
+
+    interface BulkReportResult {
+        success: boolean;
+        total: number;
+        successful: number;
+        failed: number;
+        reports: BulkReportItemResult[];
+        error?: string;
+    }
+
+    interface BulkProgressPayload {
+        total: number;
+        completed: number;
+        successful: number;
+        failed: number;
+        currentItem: {
+            clientName: string;
+            formName: string;
+        };
+        isComplete: boolean;
+    }
+
     interface CategoryNode {
         id: string;
         name: string;
@@ -293,6 +330,7 @@ declare global {
 
             // Missing Report Methods
             generateReport(input: GenerateReportInput): Promise<GenerateReportResult>;
+            generateBulkReports(request: BulkReportRequest, onProgress: (payload: BulkProgressPayload) => void): Promise<BulkReportResult>;
             getReports(page: number, limit: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC', clientId?: string): Promise<{ reports: any[], total: number }>;
 
             getReportById(reportId: string): Promise<ReportRecord | null>;

@@ -39,6 +39,13 @@ contextBridge.exposeInMainWorld('api', {
 
     // Reports
     generateReport: (input: unknown) => ipcRenderer.invoke('report:generate', input),
+    generateBulkReports: (request: unknown, onProgress: (payload: any) => void) => {
+        const listener = (_event: any, payload: any) => onProgress(payload);
+        ipcRenderer.on('bulk-progress', listener);
+        return ipcRenderer.invoke('report:generate-bulk', request).finally(() => {
+            ipcRenderer.removeListener('bulk-progress', listener);
+        });
+    },
     getReports: (page?: number, limit?: number, formId?: string, search?: string, sortBy?: string, sortOrder?: 'ASC' | 'DESC') => ipcRenderer.invoke('report:get-all', page, limit, formId, search, sortBy, sortOrder),
     getReportById: (reportId: string) => ipcRenderer.invoke('report:get-by-id', reportId),
     deleteReport: (reportId: string) => ipcRenderer.invoke('report:delete', reportId),
