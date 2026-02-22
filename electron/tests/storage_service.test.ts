@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'path';
 
 // ─── Hoist Mocks ──────────────────────────────────────────────────────────────
 
@@ -103,10 +104,11 @@ describe('Storage Service', () => {
             initializeStorage();
 
             const calls = mockMkdirSync.mock.calls.map(c => c[0] as string);
-            // Each path should start with the userData path
-            for (const dirPath of calls) {
-                expect(dirPath.startsWith('/mock/userData')).toBe(true);
-            }
+            // Use path.join to build expected paths so the check is platform-independent
+            const expectedPaths = ['templates', 'reports', 'logs'].map(dir =>
+                path.join('/mock/userData', dir)
+            );
+            expect(calls).toEqual(expect.arrayContaining(expectedPaths));
         });
     });
 
