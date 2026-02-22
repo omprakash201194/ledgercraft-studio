@@ -37,10 +37,10 @@ export default defineConfig({
         // React UI components are excluded (require E2E/Playwright tests, not unit tests).
         // Raised from 60% after closing coverage gaps in auth, templateService, dateUtils,
         // clientTypeService, and clientService.
-        lines: 68,
-        functions: 62,
-        branches: 70,
-        statements: 68,
+        lines: 72,
+        functions: 68,
+        branches: 73,
+        statements: 72,
       },
     },
   },

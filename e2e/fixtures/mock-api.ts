@@ -38,6 +38,8 @@ export interface MockOptions {
     initialForms?: Record<string, unknown>[];
     initialFormFields?: Record<string, unknown>[];
     initialReports?: Record<string, unknown>[];
+    initialUsers?: Record<string, unknown>[];
+    analyticsOverride?: Record<string, unknown>;
 }
 
 /**
@@ -56,6 +58,8 @@ export function buildMockApiScript(opts: MockOptions = {}): string {
         forms: opts.initialForms ?? [],
         formFields: opts.initialFormFields ?? [],
         reports: opts.initialReports ?? [],
+        users: opts.initialUsers ?? [],
+        analytics: opts.analyticsOverride ?? { totalReports: 5, totalForms: 3, reportsThisMonth: 2, activeClients: 1, reportsByUser: [], topForms: [], monthlyTrend: [] },
     };
 
     return `(function () {
@@ -92,9 +96,11 @@ export function buildMockApiScript(opts: MockOptions = {}): string {
     },
     getCurrentUser: function () { return Promise.resolve(s.currentUser); },
     createUser: function (username, password, role) {
-      return Promise.resolve({ success: true, user: { id: 'new-u-' + Date.now(), username: username, role: role, created_at: new Date().toISOString() } });
+      var newUser = { id: 'new-u-' + Date.now(), username: username, role: role, created_at: new Date().toISOString() };
+      s.users.push(newUser);
+      return Promise.resolve({ success: true, user: newUser });
     },
-    getAllUsers: function () { return Promise.resolve([]); },
+    getAllUsers: function () { return Promise.resolve({ success: true, users: s.users }); },
     resetUserPassword: function () { return Promise.resolve({ success: true }); },
 
     // ── Templates ────────────────────────────────────────
@@ -184,7 +190,12 @@ export function buildMockApiScript(opts: MockOptions = {}): string {
       s.reports = s.reports.filter(function (r) { return r.id !== id; });
       return Promise.resolve({ success: true });
     },
-    deleteReports: function () { return Promise.resolve({ success: true }); },
+    deleteReports: function (ids) {
+      if (ids && ids.length) {
+        s.reports = s.reports.filter(function (r) { return ids.indexOf(r.id) === -1; });
+      }
+      return Promise.resolve({ success: true });
+    },
     downloadReport: function () { return Promise.resolve({ success: true }); },
 
     // ── Categories ────────────────────────────────────────
@@ -238,7 +249,7 @@ export function buildMockApiScript(opts: MockOptions = {}): string {
       return Promise.resolve({ logs: s.auditLogs, total: s.auditLogs.length });
     },
     getAnalytics: function () {
-      return Promise.resolve({ totalReports: 5, totalForms: 3, topForms: [] });
+      return Promise.resolve(s.analytics);
     },
     getUserPreferences: function () {
       return Promise.resolve({ date_format: 'DD-MM-YYYY' });
