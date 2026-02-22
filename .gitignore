@@ -27,3 +27,7 @@ out.txt
 *.db-journal
 *.sqlite-shm
 *.sqlite-wal
+
+# Playwright
+playwright-report/
+test-results/

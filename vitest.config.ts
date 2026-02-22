@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    exclude: ['**/node_modules/**', '**/dist/**', '**/build/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/build/**', 'e2e/**'],
     pool: 'forks',
     coverage: {
       provider: 'v8',
