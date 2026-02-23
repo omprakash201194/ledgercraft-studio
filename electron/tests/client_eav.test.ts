@@ -71,10 +71,10 @@ const mockPrepare = vi.fn((sql: string) => ({
         return undefined;
     },
     all: (...args: any[]) => {
-        if (sql.includes('SELECT id, field_key, data_type, is_required FROM client_type_fields')) {
+        if (sql.includes('SELECT id, field_key, label, data_type, is_required FROM client_type_fields')) {
             return clientTypeFields
                 .filter(f => f.client_type_id === args[0] && f.is_deleted === 0)
-                .map(f => ({ id: f.id, field_key: f.field_key, data_type: f.data_type, is_required: f.is_required }));
+                .map(f => ({ id: f.id, field_key: f.field_key, label: f.label, data_type: f.data_type, is_required: f.is_required }));
         }
         if (sql.includes('SELECT id, field_key FROM client_type_fields')) {
             return clientTypeFields
