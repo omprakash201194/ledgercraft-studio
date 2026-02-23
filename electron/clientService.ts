@@ -184,7 +184,7 @@ export function createClient(input: CreateClientInput): Client {
     // Actually, let's look up the keys for the provided field_ids.
 
     // Get all fields for this client type to map ID -> Key and metadata
-    const typeFields = db.prepare('SELECT id, field_key, data_type, is_required FROM client_type_fields WHERE client_type_id = ? AND is_deleted = 0').all(input.client_type_id) as { id: string, field_key: string, data_type: string, is_required: number }[];
+    const typeFields = db.prepare('SELECT id, field_key, label, data_type, is_required FROM client_type_fields WHERE client_type_id = ? AND is_deleted = 0').all(input.client_type_id) as { id: string, field_key: string, label: string, data_type: string, is_required: number }[];
     const fieldMap = new Map(typeFields.map(f => [f.id, f.field_key]));
     const fieldMetaMap = new Map(typeFields.map(f => [f.id, f]));
 
@@ -193,7 +193,7 @@ export function createClient(input: CreateClientInput): Client {
         if (field.is_required === 1) {
             const provided = input.field_values.find(fv => fv.field_id === field.id);
             if (!provided || !provided.value || provided.value.trim().length === 0) {
-                throw new Error(`Required field "${field.field_key}" is missing`);
+                throw new Error(`Required field "${field.label || field.field_key}" is missing`);
             }
         }
     }
@@ -205,12 +205,12 @@ export function createClient(input: CreateClientInput): Client {
 
         if (meta.data_type === 'number') {
             if (isNaN(Number(fv.value.trim()))) {
-                throw new Error(`Field "${meta.field_key}" expects a numeric value`);
+                throw new Error(`Field "${meta.label || meta.field_key}" expects a numeric value`);
             }
         } else if (meta.data_type === 'date') {
             const d = new Date(fv.value.trim());
             if (isNaN(d.getTime())) {
-                throw new Error(`Field "${meta.field_key}" expects a valid date`);
+                throw new Error(`Field "${meta.label || meta.field_key}" expects a valid date`);
             }
         }
     }
