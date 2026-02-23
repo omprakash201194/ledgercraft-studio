@@ -59,7 +59,8 @@ export default defineConfig({
          */
         {
             name: 'electron-e2e',
-            testDir: 'e2e/tests',
+            testDir: 'e2e',
+            testMatch: '**/*.spec.ts',
         },
 
         /**
