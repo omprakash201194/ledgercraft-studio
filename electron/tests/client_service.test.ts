@@ -129,9 +129,9 @@ const mockPrepare = vi.fn((sql: string) => {
                 return clientCategories.filter(c => c.is_deleted === 0);
             }
 
-            if (sql.includes('SELECT id, field_key FROM client_type_fields') || sql.includes('SELECT id, field_key, data_type, is_required FROM client_type_fields')) {
+            if (sql.includes('SELECT id, field_key FROM client_type_fields') || sql.includes('SELECT id, field_key, label, data_type, is_required FROM client_type_fields')) {
                 const [tid] = args;
-                return clientTypeFields.filter(f => f.client_type_id === tid && f.is_deleted === 0).map(f => ({ id: f.id, field_key: f.field_key, data_type: f.data_type || 'text', is_required: f.is_required || 0 }));
+                return clientTypeFields.filter(f => f.client_type_id === tid && f.is_deleted === 0).map(f => ({ id: f.id, field_key: f.field_key, label: f.label, data_type: f.data_type || 'text', is_required: f.is_required || 0 }));
             }
 
             if (sql.includes('FROM clients c') && sql.includes('LIKE ?')) {
