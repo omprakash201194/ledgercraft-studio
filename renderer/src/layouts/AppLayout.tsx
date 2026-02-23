@@ -174,60 +174,62 @@ const AppLayout: React.FC = () => {
                 <Divider sx={{ mb: 1.5 }} />
 
                 {/* Navigation */}
-                <List sx={{ px: 0.5, flex: 1 }}>
-                    {navItems.map((item) => {
-                        const isActive = location.pathname === item.path;
-                        return (
-                            <Tooltip title={!isSidebarOpen ? item.label : ''} placement="right" key={item.path}>
-                                <ListItemButton
-                                    selected={isActive}
-                                    onClick={() => navigate(item.path)}
-                                    sx={{
-                                        px: 1.5,
-                                        py: 1,
-                                        mb: 0.3,
-                                        justifyContent: isSidebarOpen ? 'initial' : 'center',
-                                        transition: 'all 0.2s ease',
-                                        '&:hover': {
-                                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                                        },
-                                        ...(isActive && {
-                                            '& .MuiListItemIcon-root': {
-                                                color: theme.palette.primary.main,
-                                            },
-                                            '& .MuiListItemText-primary': {
-                                                color: theme.palette.primary.main,
-                                                fontWeight: 600,
-                                            },
-                                        }),
-                                    }}
-                                >
-                                    <ListItemIcon
+                <Box role="navigation" aria-label="Main navigation" data-testid="main-navigation" sx={{ flex: 1, display: 'flex' }}>
+                    <List sx={{ px: 0.5, flex: 1 }}>
+                        {navItems.map((item) => {
+                            const isActive = location.pathname === item.path;
+                            return (
+                                <Tooltip title={!isSidebarOpen ? item.label : ''} placement="right" key={item.path}>
+                                    <ListItemButton
+                                        selected={isActive}
+                                        onClick={() => navigate(item.path)}
                                         sx={{
-                                            minWidth: 0,
-                                            mr: isSidebarOpen ? 2 : 0,
-                                            justifyContent: 'center',
-                                            color: 'text.secondary'
+                                            px: 1.5,
+                                            py: 1,
+                                            mb: 0.3,
+                                            justifyContent: isSidebarOpen ? 'initial' : 'center',
+                                            transition: 'all 0.2s ease',
+                                            '&:hover': {
+                                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                            },
+                                            ...(isActive && {
+                                                '& .MuiListItemIcon-root': {
+                                                    color: theme.palette.primary.main,
+                                                },
+                                                '& .MuiListItemText-primary': {
+                                                    color: theme.palette.primary.main,
+                                                    fontWeight: 600,
+                                                },
+                                            }),
                                         }}
                                     >
-                                        {item.icon}
-                                    </ListItemIcon>
-                                    {isSidebarOpen && (
-                                        <ListItemText
-                                            primary={item.label}
-                                            primaryTypographyProps={{
-                                                fontSize: '0.875rem',
-                                                fontWeight: 500,
-                                                noWrap: true
+                                        <ListItemIcon
+                                            sx={{
+                                                minWidth: 0,
+                                                mr: isSidebarOpen ? 2 : 0,
+                                                justifyContent: 'center',
+                                                color: 'text.secondary'
                                             }}
-                                            sx={{ opacity: isSidebarOpen ? 1 : 0 }}
-                                        />
-                                    )}
-                                </ListItemButton>
-                            </Tooltip>
-                        );
-                    })}
-                </List>
+                                        >
+                                            {item.icon}
+                                        </ListItemIcon>
+                                        {isSidebarOpen && (
+                                            <ListItemText
+                                                primary={item.label}
+                                                primaryTypographyProps={{
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: 500,
+                                                    noWrap: true
+                                                }}
+                                                sx={{ opacity: isSidebarOpen ? 1 : 0 }}
+                                            />
+                                        )}
+                                    </ListItemButton>
+                                </Tooltip>
+                            );
+                        })}
+                    </List>
+                </Box>
 
                 {/* User Info + Logout at Bottom */}
                 <Divider sx={{ mt: 1 }} />

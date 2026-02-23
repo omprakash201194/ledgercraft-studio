@@ -183,9 +183,37 @@ export function createClient(input: CreateClientInput): Client {
     // For now, checks against field_key 'pan', 'pan_number', 'tan', 'tan_number', 'gst', 'gst_number'
     // Actually, let's look up the keys for the provided field_ids.
 
-    // Get all fields for this client type to map ID -> Key
-    const typeFields = db.prepare('SELECT id, field_key FROM client_type_fields WHERE client_type_id = ?').all(input.client_type_id) as { id: string, field_key: string }[];
+    // Get all fields for this client type to map ID -> Key and metadata
+    const typeFields = db.prepare('SELECT id, field_key, data_type, is_required FROM client_type_fields WHERE client_type_id = ? AND is_deleted = 0').all(input.client_type_id) as { id: string, field_key: string, data_type: string, is_required: number }[];
     const fieldMap = new Map(typeFields.map(f => [f.id, f.field_key]));
+    const fieldMetaMap = new Map(typeFields.map(f => [f.id, f]));
+
+    // Validate required fields
+    for (const field of typeFields) {
+        if (field.is_required === 1) {
+            const provided = input.field_values.find(fv => fv.field_id === field.id);
+            if (!provided || !provided.value || provided.value.trim().length === 0) {
+                throw new Error(`Required field "${field.field_key}" is missing`);
+            }
+        }
+    }
+
+    // Validate data types
+    for (const fv of input.field_values) {
+        const meta = fieldMetaMap.get(fv.field_id);
+        if (!meta || !fv.value || fv.value.trim().length === 0) continue;
+
+        if (meta.data_type === 'number') {
+            if (isNaN(Number(fv.value.trim()))) {
+                throw new Error(`Field "${meta.field_key}" expects a numeric value`);
+            }
+        } else if (meta.data_type === 'date') {
+            const d = new Date(fv.value.trim());
+            if (isNaN(d.getTime())) {
+                throw new Error(`Field "${meta.field_key}" expects a valid date`);
+            }
+        }
+    }
 
     const uniqueKeys = ['pan', 'pan_number', 'tan', 'tan_number', 'gst', 'aadhaar'];
 
