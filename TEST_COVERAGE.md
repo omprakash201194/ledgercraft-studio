@@ -6,17 +6,11 @@ LedgerCraft Studio has two complementary test tiers:
 
 | Tier | Tool | Tests | Status |
 |------|------|-------|--------|
-| Unit / Integration | Vitest 4.0.18 | **492 passing, 1 skipped** | ✅ |
+| Unit / Integration | Vitest 4.0.18 | **512 passing** | ✅ |
 | E2E (headless UI) | Playwright 1.58.2 | **43 passing** | ✅ |
 | **Total** | | **535 tests** | ✅ |
 
 *Last measured: 2026-02-22 — Node 22 / TypeScript 5.7.3*
-
-> **Known environment issue:** `electron/tests/integration_sqlite_fs.test.ts` (4 tests)
-> skips in this sandbox because `better-sqlite3` is compiled against a different
-> Node.js ABI version (NODE_MODULE_VERSION 132 vs runtime 137).
-> The 4 skipped tests pass in the standard project dev environment after
-> `npm rebuild` or a fresh `npm install`.
 
 ---
 
@@ -75,7 +69,7 @@ All files          |   71.39 |    74.84 |    65.40 |   71.84
 
 ---
 
-## Unit / Integration Test Suites (31 files, 492 tests)
+## Unit / Integration Test Suites (32 files, 512 tests)
 
 ### `electron/utils/applyFieldFormatting.test.ts` — 36 tests ✅
 Field formatting utility (electron main process).
@@ -139,9 +133,6 @@ Template upload, category mirroring, form creation.
 ### `electron/tests/integration_sqlite.test.ts` — 41 tests ✅
 SQLite schema validation — WAL mode, all 14 tables, 7 migrations, FK relationships.
 
-### `electron/tests/integration_sqlite_fs.test.ts` — 4 tests ⏭️ SKIPPED (env)
-Real SQLite + file-system round-trip. Skipped due to `better-sqlite3` ABI mismatch in CI sandbox.
-
 ### `electron/tests/ipc_bridge.test.ts` — 19 tests ✅
 IPC bridge contract — all 68 API methods, channel consistency, no Node.js leakage.
 
@@ -181,7 +172,7 @@ User preferences — defaults, get, insert/update, partial merge.
 ### `renderer/src/utils/mergeClientPrefill.test.ts` — 8 tests ✅
 Client prefill merge utility.
 
-### `renderer/src/tests/ClientTypesPage.test.tsx` — 1 test ⏭️ SKIPPED (pre-existing)
+### `renderer/src/tests/ClientTypesPage.test.tsx` — 3 tests ✅
 
 ---
 
@@ -287,12 +278,11 @@ Log table, action chips, USER RBAC, empty state.
 - **Critical regression flows** (all in E2E): login/RBAC, category tree, template upload, client creation, report generation, soft-delete, audit logs
 
 ### What would improve quality further 🔧
-1. **Real SQLite integration tests** – The `integration_sqlite_fs.test.ts` suite (4 tests) is the highest-value gap. Rebuild `better-sqlite3` for the target runtime (`npm rebuild`) and these tests will activate.
-2. **E2E: Settings + backup flow** – The backup/restore UI is critical for data safety but untested at the UI level.
-3. **E2E: Reports page delete/bulk-delete** – The report delete confirmation dialog is a critical user flow.
-4. **E2E: UsersPage** – Admin-only user creation/password-reset UI.
-5. **More branch coverage in formService/reportService** – Several error paths in the delete/generate flows are only 78–82% branch-covered.
-6. **Component tests (React Testing Library)** – FormWizard, CategoryTree, and DeleteFormDialog have complex internal state that would benefit from RTL component tests in addition to E2E coverage.
+1. **E2E: Settings + backup flow** – The backup/restore UI is critical for data safety but untested at the UI level.
+2. **E2E: Reports page delete/bulk-delete** – The report delete confirmation dialog is a critical user flow.
+3. **E2E: UsersPage** – Admin-only user creation/password-reset UI.
+4. **More branch coverage in formService/reportService** – Several error paths in the delete/generate flows are only 78–82% branch-covered.
+5. **Component tests (React Testing Library)** – FormWizard, CategoryTree, and DeleteFormDialog have complex internal state that would benefit from RTL component tests in addition to E2E coverage.
 
 ---
 
@@ -334,7 +324,7 @@ npm run test:ui
 ## CI Integration
 
 The CI workflow runs on every PR:
-1. All 492 unit tests must pass (1 skipped excluded — pre-existing)
+1. All 512 unit tests must pass
 2. All 43 E2E tests must pass
 3. Coverage must meet thresholds: 68% statements / 70% branches / 62% functions / 68% lines
 4. Coverage HTML report uploaded as artifact
@@ -342,18 +332,12 @@ The CI workflow runs on every PR:
 ---
 
 *Last Updated: 2026-02-22*  
-*Unit/Integration: Vitest 4.0.18 — 492 passing, 1 skipped (31 files)*  
+*Unit/Integration: Vitest 4.0.18 — 512 passing (32 files)*  
 *E2E: Playwright 1.58.2 — 43 passing (11 files)*  
 *Total: 535 tests*  
 *TypeScript: 5.7.3*
 
 *Last measured: 2026-02-22 — Node 22 / TypeScript 5.7.3*
-
-> **Known environment issue:** `electron/tests/integration_sqlite_fs.test.ts` (4 tests)
-> skips in this sandbox because `better-sqlite3` is compiled against a different
-> Node.js ABI version (NODE_MODULE_VERSION 132 vs runtime 137).
-> The 4 skipped tests pass in the standard project dev environment after
-> `npm rebuild` or a fresh `npm install`.
 
 ---
 
@@ -455,11 +439,6 @@ Template upload, category mirroring, form creation.
 ### `electron/tests/integration_sqlite.test.ts` — 41 tests ✅
 SQLite schema validation — WAL mode, all 14 tables, 7 migrations, FK relationships.
 
-### `electron/tests/integration_sqlite_fs.test.ts` — 4 tests ⏭️ SKIPPED (env)
-Real SQLite + file-system round-trip — WAL mode, schema tables, soft-delete filter,
-full report generation. Skipped in this sandbox due to `better-sqlite3` ABI mismatch;
-passes after `npm rebuild` on a fresh install.
-
 ### `electron/tests/ipc_bridge.test.ts` — 19 tests ✅
 IPC bridge contract — all 68 API methods, channel consistency, no Node.js leakage.
 
@@ -513,7 +492,7 @@ User preferences — defaults, get, insert/update, partial merge.
 ### `renderer/src/utils/mergeClientPrefill.test.ts` — 8 tests ✅
 Client prefill merge utility.
 
-### `renderer/src/tests/ClientTypesPage.test.tsx` — 1 test ⏭️ SKIPPED (pre-existing)
+### `renderer/src/tests/ClientTypesPage.test.tsx` — 3 tests ✅
 
 ---
 
