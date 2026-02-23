@@ -39,7 +39,13 @@ export const test = base.extend<ElectronFixtures>({
         const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lcs-e2e-'));
 
         const app = await electron.launch({
-            args: [MAIN_PATH, `--user-data-dir=${userDataDir}`],
+            args: [
+                MAIN_PATH,
+                `--user-data-dir=${userDataDir}`,
+                // Required on Linux CI: chrome-sandbox binary cannot be configured
+                // with SUID permissions on GitHub-hosted runners.
+                ...(process.env.CI ? ['--no-sandbox'] : []),
+            ],
             env: {
                 ...process.env,
                 NODE_ENV: 'test',

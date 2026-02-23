@@ -42,7 +42,7 @@ jobs:
             libasound2-dev
 
       - name: Install project dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Verify Electron installation
         run: node -e "const fs=require('fs'); const p=require('electron'); if(!fs.existsSync(p)) { console.error('Electron binary missing at:', p); process.exit(1); } console.log('Electron binary:', p);"
