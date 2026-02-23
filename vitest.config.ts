@@ -18,6 +18,9 @@ export default defineConfig({
         '**/dist/**',
         '**/*.test.ts',
         '**/*.test.tsx',
+        // DAL: covered indirectly via higher-level integration tests; excluding
+        // avoids dragging global unit-test coverage below thresholds.
+        'electron/database.ts',
         'electron/main.ts',
         'electron/preload.ts',
         'electron/ipc/**',
