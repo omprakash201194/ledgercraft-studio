@@ -21,7 +21,7 @@ import {
     MoveItemInput
 } from '../categoryService';
 import { exportBackup, restoreBackup } from '../backupService';
-import { searchClients, getClientById, createClient, updateClient, getReportCountByClient, deleteClientOnly, deleteClientWithReports, exportClientReportsZip, getTopClients } from '../clientService';
+import { searchClients, getAllClients, getClientById, createClient, updateClient, getReportCountByClient, deleteClientOnly, deleteClientWithReports, exportClientReportsZip, getTopClients } from '../clientService';
 import { getAllClientTypes, getClientTypeFields, createClientType } from '../clientTypeService';
 
 /**
@@ -344,6 +344,10 @@ export function registerIpcHandlers(): void {
     // ─── Clients ─────────────────────────────────────────
     ipcMain.handle('client:search', (_event, query: string) => {
         return searchClients(query);
+    });
+
+    ipcMain.handle('client:get-all', () => {
+        return getAllClients();
     });
 
     ipcMain.handle('client:get-by-id', (_event, clientId: string) => {

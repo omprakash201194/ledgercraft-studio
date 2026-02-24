@@ -32,7 +32,7 @@ export default function BatchCenterPage() {
             const formsRes = await window.api.getForms(1, 100);
             setForms(formsRes.forms || []);
 
-            const initialClients = await window.api.searchClients('%');
+            const initialClients = await window.api.getAllClients();
             setClients(initialClients || []);
 
             const catTree = await window.api.getCategoryTree('CLIENT');
@@ -265,6 +265,7 @@ export default function BatchCenterPage() {
                                             edge="end"
                                             checked={selectedFormIds.has(form.id)}
                                             onChange={() => toggleForm(form.id)}
+                                            onClick={(e) => e.stopPropagation()}
                                         />
                                     </ListItemSecondaryAction>
                                 </ListItem>

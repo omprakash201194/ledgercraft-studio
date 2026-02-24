@@ -307,6 +307,7 @@ declare global {
             resetUserPassword(targetUserId: string, newPassword: string): Promise<ServiceResult>;
 
             searchClients(query: string): Promise<Client[]>;
+            getAllClients(): Promise<Client[]>;
             getTopClients(limit?: number): Promise<Client[]>;
             getClientById(clientId: string): Promise<Client | null>;
             createClient(input: CreateClientInput): Promise<Client>;

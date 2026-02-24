@@ -330,6 +330,51 @@ export function searchClients(query: string): Client[] {
 }
 
 /**
+ * Get all clients without a result cap. Intended for admin-only bulk operations.
+ */
+export function getAllClients(): Client[] {
+    const db = database.getConnection();
+    const sql = `
+        SELECT c.*,
+               (
+                   SELECT json_group_object(ctf.field_key, cfv_inner.value)
+                   FROM client_field_values cfv_inner
+                   JOIN client_type_fields ctf ON ctf.id = cfv_inner.field_id
+                   WHERE cfv_inner.client_id = c.id
+               ) as fields_json
+        FROM clients c
+        WHERE c.is_deleted = 0
+        ORDER BY c.name ASC
+    `;
+
+    const results = db.prepare(sql).all() as (Client & { fields_json?: string })[];
+
+    return results.map(row => {
+        const client: Client = {
+            id: row.id,
+            name: row.name,
+            client_type_id: row.client_type_id,
+            category_id: row.category_id,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            is_deleted: row.is_deleted
+        };
+
+        if (row.fields_json) {
+            try {
+                const parsed = JSON.parse(row.fields_json);
+                if (Object.keys(parsed).length > 0) {
+                    client.field_values = parsed;
+                }
+            } catch (e) {
+                console.error('Failed to parse fields_json', e);
+            }
+        }
+        return client;
+    });
+}
+
+/**
  * Get top clients sorted by report count.
  */
 export function getTopClients(limit: number = 10): Client[] {
