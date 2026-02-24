@@ -40,7 +40,8 @@ import {
     ChevronLeft as ChevronLeftIcon,
     SettingsApplications as ClientTypesIcon,
     Layers as BatchCenterIcon,
-} from '@mui/icons-material'; import { useAuth } from '../components/AuthContext';
+} from '@mui/icons-material';
+import { useAuth } from '../components/AuthContext';
 
 const SIDEBAR_WIDTH = 260;
 const COLLAPSED_SIDEBAR_WIDTH = 70;

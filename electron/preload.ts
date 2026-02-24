@@ -73,6 +73,7 @@ contextBridge.exposeInMainWorld('api', {
 
     // Clients
     searchClients: (query: string) => ipcRenderer.invoke('client:search', query),
+    getAllClients: () => ipcRenderer.invoke('client:get-all'),
     getTopClients: (limit?: number) => ipcRenderer.invoke('client:get-top', limit),
     getClientById: (clientId: string) => ipcRenderer.invoke('client:get-by-id', clientId),
     createClient: (input: any) => ipcRenderer.invoke('client:create', input),

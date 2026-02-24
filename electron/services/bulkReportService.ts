@@ -6,7 +6,7 @@ import { getCurrentUser } from '../auth';
 import { logAction } from '../auditService';
 import { generateReport } from '../reportService';
 import { getClientById } from '../clientService';
-import { buildBulkFileName, ensureUniqueFilePath, sanitize } from '../utils/fileNameBuilder';
+import { buildBulkFileName, ensureUniqueFilePath } from '../utils/fileNameBuilder';
 import { BulkReportRequest, BulkReportResult, BulkReportItemResult, BulkProgressPayload } from '../types/bulk';
 
 type ProgressCallback = (payload: BulkProgressPayload) => void;
@@ -20,6 +20,10 @@ export async function generateBulkReports(
     request: BulkReportRequest,
     onProgress?: ProgressCallback
 ): Promise<BulkReportResult> {
+    if (!request || typeof request !== 'object') {
+        return { success: false, total: 0, successful: 0, failed: 0, reports: [], error: 'Invalid request' };
+    }
+
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== 'ADMIN') {
         return {
@@ -74,20 +78,9 @@ export async function generateBulkReports(
             const clientName = getClientName(job.clientId);
             const formName = getFormName(job.formId);
 
-            if (onProgress) {
-                onProgress({
-                    total, completed, successful, failed,
-                    currentItem: { clientName, formName },
-                    isComplete: false
-                });
-            }
-
             try {
-                // Rely on existing generateReport logic (which uses synchronous fs/DB calls)
-                // We wrap it in async to allow UI event loop to breathe if we had async yield,
-                // but since it's mostly sync it will still block somewhat. The promise pool helps sequence it.
-                // To yield to event loop properly we can use setTimeout or setImmediate
-                await new Promise(resolve => setTimeout(resolve, 10));
+                // Yield to the event loop without adding artificial delay
+                await new Promise<void>(resolve => setImmediate(resolve));
 
                 const result = generateReport({
                     form_id: job.formId,
@@ -100,19 +93,21 @@ export async function generateBulkReports(
                     const oldFilePath = result.report.file_path;
 
                     const newFileName = buildBulkFileName(clientName, formName, request.financialYear);
-                    const sanitizedFormFolder = sanitize(formName);
-                    // Standard target dir as created by reportService:
+                    // Use the same form-name sanitization as reportService to keep directories consistent
+                    const sanitizedFormFolder = formName.replace(/[^a-zA-Z0-9_\- ]/g, '').trim() || 'report';
                     const targetDir = path.join(app.getPath('userData'), 'reports', sanitizedFormFolder);
 
                     const finalFilePath = ensureUniqueFilePath(targetDir, newFileName);
 
-                    // Rename file
+                    // Rename file; fall back to original path if the file is unexpectedly missing
+                    let reportedFilePath = oldFilePath;
                     if (fs.existsSync(oldFilePath)) {
                         fs.renameSync(oldFilePath, finalFilePath);
 
                         // Update DB with new filepath
                         const db = database.getConnection();
                         db.prepare('UPDATE reports SET file_path = ? WHERE id = ?').run(finalFilePath, result.report.id);
+                        reportedFilePath = finalFilePath;
                     }
 
                     successful++;
@@ -120,7 +115,7 @@ export async function generateBulkReports(
                         clientId: job.clientId, clientName,
                         formId: job.formId, formName,
                         success: true,
-                        filePath: finalFilePath
+                        filePath: reportedFilePath
                     });
                 } else {
                     failed++;
@@ -141,6 +136,13 @@ export async function generateBulkReports(
                 });
             } finally {
                 completed++;
+                if (onProgress) {
+                    onProgress({
+                        total, completed, successful, failed,
+                        currentItem: { clientName, formName },
+                        isComplete: false
+                    });
+                }
             }
         })();
 
