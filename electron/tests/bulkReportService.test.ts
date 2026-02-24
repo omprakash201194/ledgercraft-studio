@@ -59,7 +59,8 @@ describe('BulkReportService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.getCurrentUser.mockReturnValue({ id: 'admin1', role: 'ADMIN' });
-        mocks.existsSync.mockReturnValue(true); // FS mocks
+        // Return true for directory checks and old.docx (to allow rename), false for new .docx paths to break infinite loop
+        mocks.existsSync.mockImplementation((p: string) => p.includes('old.docx') || !p.endsWith('.docx'));
     });
 
     it('should reject non-admin users', async () => {

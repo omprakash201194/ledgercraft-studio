@@ -230,7 +230,7 @@ const CategoryTree: React.FC<CategoryTreeProps> = ({
                         Categories
                     </Typography>
                     <Tooltip title="Create Root Category">
-                        <IconButton size="small" onClick={handleCreateRoot}>
+                        <IconButton size="small" onClick={handleCreateRoot} aria-label="Create Root Category">
                             <AddIcon fontSize="small" />
                         </IconButton>
                     </Tooltip>

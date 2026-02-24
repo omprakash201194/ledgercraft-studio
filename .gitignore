@@ -27,3 +27,8 @@ out.txt
 *.db-journal
 *.sqlite-shm
 *.sqlite-wal
+
+# Playwright E2E
+playwright-report/
+test-results/
+.features-gen/

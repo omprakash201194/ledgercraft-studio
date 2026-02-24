@@ -1,81 +1,104 @@
-import { describe, it } from 'vitest';
+// @vitest-environment jsdom
+/**
+ * RTL Component Test – ClientTypesPage
+ *
+ * Focuses on role-based access and basic create flow.
+ */
 
-describe.skip('ClientTypesPage', () => {
-    it('is skipped', () => { });
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import ClientTypesPage from '../pages/ClientTypesPage';
+import { AuthContext } from '../components/AuthContext';
+
+// ─── Mock window.api ─────────────────────────────────────────────────────────
+
+const mockGetAllClientTypes = vi.fn();
+const mockCreateClientType = vi.fn();
+const mockGetClientTypeFields = vi.fn();
+const mockAddClientTypeField = vi.fn();
+const mockSoftDeleteClientTypeField = vi.fn();
+
+(window as any).api = {
+    getAllClientTypes: mockGetAllClientTypes,
+    createClientType: mockCreateClientType,
+    getClientTypeFields: mockGetClientTypeFields,
+    addClientTypeField: mockAddClientTypeField,
+    softDeleteClientTypeField: mockSoftDeleteClientTypeField,
+};
+
+function renderPage(role: 'ADMIN' | 'USER' = 'ADMIN') {
+    return render(
+        <AuthContext.Provider value={{
+            user: { id: 'u-1', username: 'test', role, created_at: '' },
+            loading: false,
+            login: vi.fn(async () => ({ success: true })),
+            logout: vi.fn(async () => { }),
+        }}>
+            <MemoryRouter initialEntries={['/client-types']}>
+                <Routes>
+                    <Route path="/client-types" element={<ClientTypesPage />} />
+                    <Route path="/dashboard" element={<div>Dashboard</div>} />
+                </Routes>
+            </MemoryRouter>
+        </AuthContext.Provider>
+    );
+}
+
+describe('ClientTypesPage', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockGetAllClientTypes.mockResolvedValue([]);
+        mockCreateClientType.mockResolvedValue({
+            id: 'ct-1',
+            name: 'New Type',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        });
+        mockGetClientTypeFields.mockResolvedValue([]);
+        mockAddClientTypeField.mockResolvedValue({
+            id: 'f-1',
+            client_type_id: 'ct-1',
+            label: 'Field',
+            field_key: 'field',
+            data_type: 'text',
+            is_required: 0,
+            is_deleted: 0,
+            created_at: new Date().toISOString(),
+        });
+        mockSoftDeleteClientTypeField.mockResolvedValue(undefined);
+    });
+
+    it('renders for ADMIN and loads client types', async () => {
+        renderPage('ADMIN');
+
+        expect(screen.getByText('Client Types')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Create Client Type' })).toBeTruthy();
+
+        await waitFor(() => expect(mockGetAllClientTypes).toHaveBeenCalled());
+    });
+
+    it('redirects non-ADMIN to dashboard', async () => {
+        renderPage('USER');
+
+        await waitFor(() => {
+            expect(screen.getByText('Dashboard')).toBeTruthy();
+        });
+        expect(screen.queryByText('Client Types')).toBeNull();
+    });
+
+    it('opens create dialog and calls createClientType', async () => {
+        renderPage('ADMIN');
+        await waitFor(() => expect(mockGetAllClientTypes).toHaveBeenCalled());
+
+        fireEvent.click(screen.getByRole('button', { name: 'Create Client Type' }));
+        await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+
+        fireEvent.change(screen.getByLabelText('Type Name'), { target: { value: 'New Type' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+        await waitFor(() => {
+            expect(mockCreateClientType).toHaveBeenCalledWith('New Type');
+        });
+    });
 });
-
-// Tests skipped due to environment timeout issues
-// import { describe, it, expect, vi, beforeEach } from 'vitest';
-// import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-// import ClientTypesPage from '../pages/ClientTypesPage';
-// import { AuthContext } from '../components/AuthContext';
-// import { MemoryRouter } from 'react-router-dom';
-
-// // Mock window.api
-// const mockCreateClientType = vi.fn();
-// const mockGetAllClientTypes = vi.fn();
-// const mockGetClientTypeFields = vi.fn();
-// const mockAddClientTypeField = vi.fn();
-
-// window.api = {
-//     createClientType: mockCreateClientType,
-//     getAllClientTypes: mockGetAllClientTypes,
-//     getClientTypeFields: mockGetClientTypeFields,
-//     addClientTypeField: mockAddClientTypeField,
-//     // Add other required mocks as no-ops to prevent crashes if called
-//     getDbStatus: vi.fn().mockResolvedValue({ isCorrupted: false }),
-// } as any;
-
-// const renderPage = (role: string = 'ADMIN') => {
-//     return render(
-//         <AuthContext.Provider value={{
-//             user: { id: '1', username: 'test', role, created_at: '' },
-//             loading: false,
-//             login: vi.fn(),
-//             logout: vi.fn(),
-//             tryAutoLogin: vi.fn(),
-//             isAuthenticated: true,
-//             isAdmin: role === 'ADMIN'
-//         } as any}>
-//             <MemoryRouter>
-//                 <ClientTypesPage />
-//             </MemoryRouter>
-//         </AuthContext.Provider>
-//     );
-// };
-
-// describe.skip('ClientTypesPage', () => {
-//     beforeEach(() => {
-//         vi.clearAllMocks();
-//         mockGetAllClientTypes.mockResolvedValue([]);
-//     });
-
-//     it('renders for ADMIN', async () => {
-//         renderPage('ADMIN');
-//         expect(screen.getByText('Client Types')).toBeInTheDocument();
-//         expect(screen.getByText('Create Client Type')).toBeInTheDocument();
-//         await waitFor(() => expect(mockGetAllClientTypes).toHaveBeenCalled());
-//     });
-
-//     it('redirects non-ADMIN', () => {
-//         renderPage('USER');
-//         expect(screen.queryByText('Client Types')).not.toBeInTheDocument();
-//         // Since we use MemoryRouter, we can't easily check the URL change here without more setup,
-//         // but verifying the content is missing is a good proxy.
-//     });
-
-//     it('opens create dialog and calls API', async () => {
-//         renderPage('ADMIN');
-
-//         fireEvent.click(screen.getByText('Create Client Type'));
-
-//         const input = screen.getByLabelText('Type Name');
-//         fireEvent.change(input, { target: { value: 'New Type' } });
-
-//         fireEvent.click(screen.getByText('Create'));
-
-//         await waitFor(() => {
-//             expect(mockCreateClientType).toHaveBeenCalledWith('New Type');
-//         });
-//     });
-// });

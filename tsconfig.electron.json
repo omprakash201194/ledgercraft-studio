@@ -17,5 +17,12 @@
     },
     "include": [
         "electron"
+    ],
+    "exclude": [
+        "electron/tests/**",
+        "electron/**/*.test.ts",
+        "electron/**/*.test.tsx",
+        "electron/**/*.spec.ts",
+        "electron/**/*.spec.tsx"
     ]
 }
