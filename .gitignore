@@ -18,6 +18,7 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+dev_error.txt
 
 # Release cleanup
 coverage/
