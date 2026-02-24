@@ -43,7 +43,22 @@ export default defineConfig({
             : ([['list']] as const)),
     ],
 
+    /**
+     * Web server that serves the pre-built renderer for the web-based E2E tests.
+     * The renderer must be built first: `npm run build:renderer`
+     * Tests in e2e/*.spec.ts use page.goto('/') which resolves against this baseURL.
+     */
+    webServer: {
+        command: 'npx vite preview --port 4173 --config vite.config.ts',
+        url: 'http://localhost:4173',
+        reuseExistingServer: !process.env.CI,
+        stdout: 'pipe',
+        stderr: 'pipe',
+    },
+
     use: {
+        /** Base URL for web-based E2E tests that call page.goto('/') or page.goto('/#/...') */
+        baseURL: 'http://localhost:4173',
         /** Capture screenshot on test failure */
         screenshot: 'only-on-failure',
         /** Record video; keep only on failure to save disk space */
@@ -51,6 +66,12 @@ export default defineConfig({
         /** Collect Playwright trace; keep only on failure */
         trace: 'retain-on-failure',
     },
+
+    /**
+     * When a snapshot baseline does not yet exist (e.g. first CI run), write it
+     * and pass the test rather than failing.  Subsequent runs will compare normally.
+     */
+    updateSnapshots: 'missing',
 
     projects: [
         /**
