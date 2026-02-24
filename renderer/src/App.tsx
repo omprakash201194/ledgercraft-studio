@@ -18,6 +18,7 @@ import SettingsPage from './pages/SettingsPage';
 import AuditPage from './pages/AuditPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ClientTypesPage from './pages/ClientTypesPage';
+import BatchCenterPage from './pages/BatchCenterPage';
 import { Box, CircularProgress } from '@mui/material';
 
 /**
@@ -115,6 +116,7 @@ const App: React.FC = () => {
                             <Route path="audit" element={<AdminRoute><AuditPage /></AdminRoute>} />
                             <Route path="analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
                             <Route path="client-types" element={<AdminRoute><ClientTypesPage /></AdminRoute>} />
+                            <Route path="batch-center" element={<AdminRoute><BatchCenterPage /></AdminRoute>} />
 
                         </Route>
 
